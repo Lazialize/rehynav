@@ -1,0 +1,28 @@
+{
+  "name": "rehynav",
+  "version": "0.1.0",
+  "description": "Mobile-first React navigation with tab-based independent stacks for web + hybrid apps (Capacitor/Tauri).",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "types": "tsc -p tsconfig.build.json"
+  },
+  "devDependencies": {
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "typescript": "^5.9.3"
+  },
+  "peerDependencies": {
+    "react": ">=19.0.0",
+    "react-dom": ">=19.0.0"
+  },
+  "keywords": [
+    "react",
+    "mobile",
+    "web",
+    "routing",
+    "hybrid app"
+  ],
+  "author": "Naoki Takahashi",
+  "license": "MIT",
+  "packageManager": "pnpm@10.30.3"
+}

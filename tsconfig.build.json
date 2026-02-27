@@ -1,0 +1,21 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": false,
+
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "declarationMap": true,
+    "outDir": "dist/types",
+
+    "isolatedDeclarations": true
+  },
+  "include": ["src"],
+  "exclude": [
+    "**/*.test.*",
+    "**/*.spec.*",
+    "**/*.stories.*",
+    "dist",
+    "node_modules"
+  ]
+}
