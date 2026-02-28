@@ -27,7 +27,7 @@ Many React routers are optimized for "web-first" navigation (URL-driven, single 
   Back prioritizes what users expect on mobile: close overlay → pop stack → exit, matching iOS/Android conventions.
 
 - **Overlay Routes**
-  Present routes as overlays (modals, bottom sheets, etc.) without breaking stack flow.
+  Present routes as overlays (modals, bottom sheets, etc.) without breaking stack flow. Overlays are navigation states that participate in the back stack—the user explicitly opens and closes them. Transient UI like toasts or snackbars is outside rehynav's scope.
 
 - **State Persistence**
   Screens and tab stacks can keep state across tab switches and app lifecycle events.
