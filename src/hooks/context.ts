@@ -14,11 +14,13 @@ export interface NavigationStoreForHooks {
 export interface ScreenRegistryForHooks {
   screens: Map<
     string,
-    { route: string; component: React.ComponentType<unknown>; options?: unknown }
+    { route: string; component: React.ComponentType<Record<string, unknown>>; options?: unknown }
   >;
   get(
     route: string,
-  ): { route: string; component: React.ComponentType<unknown>; options?: unknown } | undefined;
+  ):
+    | { route: string; component: React.ComponentType<Record<string, unknown>>; options?: unknown }
+    | undefined;
 }
 
 export const NavigationStoreContext: React.Context<NavigationStoreForHooks | null> =

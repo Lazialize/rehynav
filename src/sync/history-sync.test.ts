@@ -98,7 +98,7 @@ describe('HistorySyncManager', () => {
   });
 
   describe('syncHistoryFromStateChange()', () => {
-    it('should pushState when depth increases (PUSH action)', () => {
+    it('should pushState when stack depth increases (PUSH action)', () => {
       manager.start();
       pushStateSpy.mockClear();
 
@@ -133,7 +133,7 @@ describe('HistorySyncManager', () => {
       expect(url).toBe('/home/other');
     });
 
-    it('should go back when depth decreases (POP action)', () => {
+    it('should go back when stack depth decreases (POP action)', () => {
       manager.start();
 
       // Push first to increase depth
@@ -150,6 +150,65 @@ describe('HistorySyncManager', () => {
       store.dispatch({ type: 'POP' });
 
       expect(goSpy).toHaveBeenCalledWith(-1);
+    });
+
+    it('should pushState on tab switch (non-linear routing)', () => {
+      manager.start();
+      pushStateSpy.mockClear();
+
+      store.dispatch({ type: 'SWITCH_TAB', tab: 'search' });
+
+      expect(pushStateSpy).toHaveBeenCalledTimes(1);
+      const [historyState, , url] = pushStateSpy.mock.calls[0];
+      expect(url).toBe('/search');
+      expect(historyState.activeTab).toBe('search');
+    });
+
+    it('should pushState on tab switch even when switching to deeper stack', () => {
+      manager.start();
+
+      // Push a screen onto search tab (via PUSH which also switches tab)
+      store.dispatch({
+        type: 'PUSH',
+        route: 'search/detail',
+        params: {},
+        id: createId(),
+        timestamp: Date.now(),
+      });
+
+      // Switch back to home (shallower stack)
+      store.dispatch({ type: 'SWITCH_TAB', tab: 'home' });
+
+      pushStateSpy.mockClear();
+
+      // Switch to search (deeper stack) - should still pushState, not go()
+      store.dispatch({ type: 'SWITCH_TAB', tab: 'search' });
+
+      expect(pushStateSpy).toHaveBeenCalledTimes(1);
+      const [historyState] = pushStateSpy.mock.calls[0];
+      expect(historyState.activeTab).toBe('search');
+    });
+
+    it('should preserve tab stacks during tab switching', () => {
+      manager.start();
+
+      // Push onto Home stack
+      store.dispatch({
+        type: 'PUSH',
+        route: 'home/detail',
+        params: { id: '1' },
+        id: createId(),
+        timestamp: Date.now(),
+      });
+
+      // Switch to Search
+      store.dispatch({ type: 'SWITCH_TAB', tab: 'search' });
+
+      // Home stack should still have 2 entries
+      const state = store.getState();
+      expect(state.tabs.home.stack).toHaveLength(2);
+      expect(state.tabs.home.stack[1].route).toBe('home/detail');
+      expect(state.activeTab).toBe('search');
     });
   });
 
@@ -193,6 +252,39 @@ describe('HistorySyncManager', () => {
       window.dispatchEvent(event);
 
       expect(dispatchSpy).not.toHaveBeenCalled();
+    });
+
+    it('should ignore popstate when isSyncing (programmatic go)', () => {
+      manager.start();
+
+      // Push to increase depth
+      store.dispatch({
+        type: 'PUSH',
+        route: 'home/detail',
+        params: {},
+        id: createId(),
+        timestamp: Date.now(),
+      });
+
+      const rootEntryId = store.getState().tabs.home.stack[0].id;
+
+      // POP triggers go(-1) which sets isSyncing=true
+      store.dispatch({ type: 'POP' });
+
+      // At this point isSyncing is true (go is mocked, no actual popstate)
+      const dispatchSpy = vi.spyOn(store, 'dispatch');
+      dispatchSpy.mockClear();
+
+      // Simulate the popstate that would fire from go(-1)
+      const event = new PopStateEvent('popstate', {
+        state: { entryId: rootEntryId, activeTab: 'home', tabStacks: {} },
+      });
+      window.dispatchEvent(event);
+
+      // handlePopState should skip because isSyncing is true
+      expect(dispatchSpy).not.toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'RESTORE_TO_ENTRY' }),
+      );
     });
   });
 
@@ -300,6 +392,97 @@ describe('HistorySyncManager', () => {
       const goSpy = vi.spyOn(window.history, 'go');
       store.dispatch({ type: 'CLOSE_OVERLAY' });
       expect(goSpy).toHaveBeenCalledWith(-1);
+    });
+  });
+
+  describe('non-linear routing scenarios', () => {
+    it('should not corrupt state when switching from deep tab to shallow tab', () => {
+      manager.start();
+
+      // Push onto Home stack (depth 1 → 2)
+      store.dispatch({
+        type: 'PUSH',
+        route: 'home/detail',
+        params: {},
+        id: createId(),
+        timestamp: Date.now(),
+      });
+
+      // Switch to Search (which has stack depth 1)
+      // This should pushState, NOT go(-1)
+      const goSpy = vi.spyOn(window.history, 'go');
+      pushStateSpy.mockClear();
+
+      store.dispatch({ type: 'SWITCH_TAB', tab: 'search' });
+
+      expect(goSpy).not.toHaveBeenCalled();
+      expect(pushStateSpy).toHaveBeenCalledTimes(1);
+
+      // Home stack should still have 2 entries
+      const state = store.getState();
+      expect(state.tabs.home.stack).toHaveLength(2);
+      expect(state.tabs.home.stack[1].route).toBe('home/detail');
+    });
+
+    it('should handle full non-linear routing flow', () => {
+      manager.start();
+
+      // 1. Push onto Home: Home stack = [home, home/detail]
+      store.dispatch({
+        type: 'PUSH',
+        route: 'home/detail',
+        params: { id: '1' },
+        id: createId(),
+        timestamp: Date.now(),
+      });
+
+      // 2. Switch to Search
+      store.dispatch({ type: 'SWITCH_TAB', tab: 'search' });
+
+      // 3. Push onto Search: Search stack = [search, search/detail]
+      store.dispatch({
+        type: 'PUSH',
+        route: 'search/detail',
+        params: { id: '2' },
+        id: createId(),
+        timestamp: Date.now(),
+      });
+
+      // 4. Switch to Profile
+      store.dispatch({ type: 'SWITCH_TAB', tab: 'profile' });
+
+      // Verify all stacks are preserved
+      const state = store.getState();
+      expect(state.activeTab).toBe('profile');
+      expect(state.tabs.home.stack).toHaveLength(2);
+      expect(state.tabs.home.stack[1].route).toBe('home/detail');
+      expect(state.tabs.search.stack).toHaveLength(2);
+      expect(state.tabs.search.stack[1].route).toBe('search/detail');
+      expect(state.tabs.profile.stack).toHaveLength(1);
+    });
+
+    it('should pushState for SWITCH_TAB_AND_RESET', () => {
+      manager.start();
+
+      // Push onto search first
+      store.dispatch({
+        type: 'PUSH',
+        route: 'search/detail',
+        params: {},
+        id: createId(),
+        timestamp: Date.now(),
+      });
+      // Go back to home
+      store.dispatch({ type: 'SWITCH_TAB', tab: 'home' });
+
+      pushStateSpy.mockClear();
+      const goSpy = vi.spyOn(window.history, 'go');
+
+      // SWITCH_TAB_AND_RESET changes activeTab → should pushState
+      store.dispatch({ type: 'SWITCH_TAB_AND_RESET', tab: 'search' });
+
+      expect(goSpy).not.toHaveBeenCalled();
+      expect(pushStateSpy).toHaveBeenCalledTimes(1);
     });
   });
 });

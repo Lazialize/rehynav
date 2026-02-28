@@ -25,7 +25,7 @@ export function StackRenderer({ stack }: StackRendererProps): React.ReactElement
           >
             <RouteContext.Provider value={{ route: entry.route, params: entry.params }}>
               {registration ? (
-                <registration.component />
+                <registration.component params={entry.params} />
               ) : (
                 <UnregisteredScreenError route={entry.route} registry={registry} />
               )}

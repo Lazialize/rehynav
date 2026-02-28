@@ -13,7 +13,7 @@ export class HistorySyncManager {
   private basePath: string;
   private unsubscribe: (() => void) | null = null;
   private popStateHandler: ((event: PopStateEvent) => void) | null = null;
-  private previousDepth = 0;
+  private previousState: NavigationState | null = null;
   private isSyncing = false;
 
   constructor(store: NavigationStore, basePath: string = '/') {
@@ -23,7 +23,7 @@ export class HistorySyncManager {
 
   start(): void {
     const state = this.store.getState();
-    this.previousDepth = this.getTotalDepth(state);
+    this.previousState = state;
 
     // Replace current history entry with initial state
     const url = stateToUrl(state, this.basePath);
@@ -60,51 +60,81 @@ export class HistorySyncManager {
   }
 
   private handlePopState(event: PopStateEvent): void {
+    // Skip popstate events triggered by programmatic history.go() calls
+    if (this.isSyncing) return;
+
     const historyState = event.state as HistoryState | null;
     if (!historyState?.entryId) return;
 
     this.isSyncing = true;
     try {
       this.store.dispatch({ type: 'RESTORE_TO_ENTRY', entryId: historyState.entryId });
-      const newState = this.store.getState();
-      this.previousDepth = this.getTotalDepth(newState);
+      this.previousState = this.store.getState();
     } finally {
       this.isSyncing = false;
     }
   }
 
   private syncHistoryFromStateChange(): void {
-    const state = this.store.getState();
-    const currentDepth = this.getTotalDepth(state);
-    const url = stateToUrl(state, this.basePath);
-    const historyState = this.createHistoryState(state);
+    const currentState = this.store.getState();
+    const prev = this.previousState;
 
-    const topEntry = this.getTopEntry(state);
+    if (!prev) return;
+
+    const url = stateToUrl(currentState, this.basePath);
+    const historyState = this.createHistoryState(currentState);
+
+    const topEntry = this.getTopEntry(currentState);
     if (topEntry) {
       this.persistParams(topEntry.id, topEntry.params);
     }
 
-    if (currentDepth > this.previousDepth) {
-      // Depth increased: push new entry
+    if (prev.activeTab !== currentState.activeTab) {
+      // Tab switch: always push a new history entry so browser back
+      // returns to the previous tab with its stack intact
       window.history.pushState(historyState, '', url);
-    } else if (currentDepth < this.previousDepth) {
-      // Depth decreased: go back
-      const delta = this.previousDepth - currentDepth;
-      // Replace after going back to update URL
-      this.isSyncing = true;
-      window.history.go(-delta);
-      // Wait for the popstate event from go() before replacing state and resetting sync flag
-      const onGoPopState = () => {
-        window.history.replaceState(historyState, '', url);
-        this.isSyncing = false;
-      };
-      window.addEventListener('popstate', onGoPopState, { once: true });
+    } else if (currentState.overlays.length > prev.overlays.length) {
+      // Overlay opened: push
+      window.history.pushState(historyState, '', url);
+    } else if (currentState.overlays.length < prev.overlays.length) {
+      // Overlay closed: go back in browser history
+      const delta = prev.overlays.length - currentState.overlays.length;
+      this.goBackSilently(delta, historyState, url);
     } else {
-      // Same depth, different route: replace
-      window.history.replaceState(historyState, '', url);
+      // Same tab, same overlay count: check stack depth
+      const activeTab = currentState.activeTab;
+      const currentStack = currentState.tabs[activeTab].stack;
+      const prevStack = prev.tabs[activeTab].stack;
+
+      if (currentStack.length > prevStack.length) {
+        // Stack push
+        window.history.pushState(historyState, '', url);
+      } else if (currentStack.length < prevStack.length) {
+        // Stack pop
+        const delta = prevStack.length - currentStack.length;
+        this.goBackSilently(delta, historyState, url);
+      } else {
+        // Same depth (replace, badge update, etc.)
+        window.history.replaceState(historyState, '', url);
+      }
     }
 
-    this.previousDepth = currentDepth;
+    this.previousState = currentState;
+  }
+
+  /**
+   * Go back in browser history without triggering RESTORE_TO_ENTRY.
+   * Sets isSyncing to prevent handlePopState from dispatching,
+   * then replaces the resulting history entry with the correct state.
+   */
+  private goBackSilently(delta: number, historyState: HistoryState, url: string): void {
+    this.isSyncing = true;
+    window.history.go(-delta);
+    const onPopState = () => {
+      window.history.replaceState(historyState, '', url);
+      this.isSyncing = false;
+    };
+    window.addEventListener('popstate', onPopState, { once: true });
   }
 
   createHistoryState(state: NavigationState): HistoryState {

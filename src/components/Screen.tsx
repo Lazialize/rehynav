@@ -6,7 +6,7 @@ const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffec
 
 export interface ScreenProps {
   name: string;
-  component: React.ComponentType<unknown>;
+  component: React.ComponentType<Record<string, unknown>>;
   options?: ScreenOptions;
 }
 
