@@ -1,54 +1,53 @@
-import type { Serializable } from './serializable';
+import type { OverlayDef, StackDef, TabDef } from '../route-helpers.js';
+import type { ScreenComponentProps } from './props.js';
+import type { Serializable } from './serializable.js';
 
-// Route map structure that users define
-export interface RouteMap {
-  tabs: Record<string, Record<string, Serializable>>;
-  stacks?: Record<string, Record<string, Serializable>>;
-  modals?: Record<string, Record<string, Serializable>>;
-  sheets?: Record<string, Record<string, Serializable>>;
-}
+// --- Type inference utilities ---
 
-// Extract keys that have required properties
-export type RequiredKeys<T> = {
-  [K in keyof T]-?: object extends Pick<T, K> ? never : K;
-}[keyof T];
+// Extract path params: 'post-detail/:postId' -> { postId: string }
+export type ExtractParams<T extends string> = T extends `${string}:${infer Param}/${infer Rest}`
+  ? { [K in Param]: string } & ExtractParams<Rest>
+  : T extends `${string}:${infer Param}`
+    ? { [K in Param]: string }
+    : // biome-ignore lint/complexity/noBannedTypes: empty object represents no params
+      {};
 
-// Route categories derived from route map
-export type TabRoutes<R extends RouteMap> = Extract<keyof R['tabs'], string>;
-export type StackRoutes<R extends RouteMap> =
-  R['stacks'] extends Record<string, unknown> ? Extract<keyof R['stacks'], string> : never;
-export type ModalRoutes<R extends RouteMap> =
-  R['modals'] extends Record<string, unknown> ? Extract<keyof R['modals'], string> : never;
-export type SheetRoutes<R extends RouteMap> =
-  R['sheets'] extends Record<string, unknown> ? Extract<keyof R['sheets'], string> : never;
+// Infer overlay params from component's ScreenComponentProps props type
+export type InferComponentParams<C> =
+  C extends React.ComponentType<ScreenComponentProps<infer P>>
+    ? P extends Record<string, Serializable>
+      ? P
+      : // biome-ignore lint/complexity/noBannedTypes: empty object represents no params
+        {}
+    : // biome-ignore lint/complexity/noBannedTypes: empty object represents no params
+      {};
 
-// All route names
-export type AllRoutes<R extends RouteMap> =
-  | TabRoutes<R>
-  | StackRoutes<R>
-  | ModalRoutes<R>
-  | SheetRoutes<R>;
+// Infer full RouteMap from definition arrays
+export type InferRouteMap<
+  TTabs extends TabDef[] = [],
+  TModals extends OverlayDef[] = [],
+  TSheets extends OverlayDef[] = [],
+> = {
+  // biome-ignore lint/complexity/noBannedTypes: empty object represents no params for tabs
+  tabs: { [T in TTabs[number] as T['name']]: {} };
+  stacks: InferStacksFromTabs<TTabs>;
+  modals: { [D in TModals[number] as D['name']]: InferComponentParams<D['component']> };
+  sheets: { [D in TSheets[number] as D['name']]: InferComponentParams<D['component']> };
+};
 
-// Linkable routes (only tabs and stacks)
-export type LinkableRoutes<R extends RouteMap> = TabRoutes<R> | StackRoutes<R>;
+// Infer stacks from tab definitions
+type InferStacksFromTabs<T extends TabDef[]> = UnionToIntersection<
+  {
+    // biome-ignore lint/suspicious/noExplicitAny: infer pattern requires any for component type
+    [I in keyof T]: T[I] extends TabDef<infer N extends string, any, infer S extends StackDef[]>
+      ? S extends []
+        ? never
+        : { [SD in S[number] as `${N}/${SD['path']}`]: ExtractParams<SD['path']> }
+      : never;
+  }[number]
+>;
 
-// Route params accessor
-export type RouteParams<R extends RouteMap, RouteName extends AllRoutes<R>> =
-  RouteName extends TabRoutes<R>
-    ? R['tabs'][RouteName]
-    : RouteName extends StackRoutes<R>
-      ? R['stacks'] extends Record<string, unknown>
-        ? R['stacks'][RouteName]
-        : never
-      : RouteName extends ModalRoutes<R>
-        ? R['modals'] extends Record<string, unknown>
-          ? R['modals'][RouteName]
-          : never
-        : RouteName extends SheetRoutes<R>
-          ? R['sheets'] extends Record<string, unknown>
-            ? R['sheets'][RouteName]
-            : never
-          : never;
-
-// Stack route key validation
-export type ValidStackKey<Tabs extends string> = `${Tabs}/${string}`;
+// biome-ignore lint/suspicious/noExplicitAny: conditional type distribution requires any
+type UnionToIntersection<U> = (U extends any ? (x: U) => void : never) extends (x: infer I) => void
+  ? I
+  : never;
