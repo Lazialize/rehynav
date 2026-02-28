@@ -2,7 +2,6 @@
 
 // Components
 export { Link } from './components/Link.js';
-export { Screen } from './components/Screen.js';
 export { TabNavigator } from './components/TabNavigator.js';
 
 export type {
@@ -33,31 +32,23 @@ export type { SheetActions } from './hooks/useSheet.js';
 export { useSheet } from './hooks/useSheet.js';
 export type { TabActions } from './hooks/useTab.js';
 export { useTab } from './hooks/useTab.js';
+
+export type { OverlayDef, StackDef, TabDef } from './route-helpers.js';
+// Route helpers
+export { modal, sheet, stack, tab } from './route-helpers.js';
+
 // Sync
 export { HistorySyncManager } from './sync/history-sync.js';
+
+// Types
 export type {
-  LinkProps,
   NavigationProviderProps,
   ScreenComponentProps,
   ScreenOptions,
-  ScreenProps,
   TabBarProps,
   TabInfo,
   TabNavigatorProps,
   TransitionConfig,
 } from './types/props.js';
-export type { Register, RegisteredRouteMap, Router } from './types/register.js';
-export type {
-  AllRoutes,
-  LinkableRoutes,
-  ModalRoutes,
-  RequiredKeys,
-  RouteMap,
-  RouteParams,
-  SheetRoutes,
-  StackRoutes,
-  TabRoutes,
-  ValidStackKey,
-} from './types/routes.js';
-// Types
+export type { ExtractParams, InferComponentParams, InferRouteMap } from './types/routes.js';
 export type { Serializable } from './types/serializable.js';
