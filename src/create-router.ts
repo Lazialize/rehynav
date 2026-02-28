@@ -2,11 +2,13 @@ import type React from 'react';
 import { createElement, useEffect, useRef } from 'react';
 import { createId } from './core/id.js';
 import { createNavigationGuardRegistry } from './core/navigation-guard.js';
+import { parseRoutePatterns } from './core/path-params.js';
 import { createInitialState } from './core/state.js';
 import type { NavigationDirection, RouteInfo } from './core/types.js';
 import {
   GuardRegistryContext,
   NavigationStoreContext,
+  RoutePatternsContext,
   ScreenRegistryContext,
   type ScreenRegistryForHooks,
 } from './hooks/context.js';
@@ -31,6 +33,7 @@ import type { RouteMap } from './types/routes.js';
 export interface RouterConfig<R extends RouteMap> {
   tabs: Array<keyof R['tabs'] & string>;
   initialTab: keyof R['tabs'] & string;
+  routes?: string[];
 }
 
 export interface RouterInstance {
@@ -49,6 +52,7 @@ export interface RouterInstance {
 export function createRouter<R extends RouteMap>(config: RouterConfig<R>): RouterInstance {
   const tabs = config.tabs as string[];
   const initialTab = config.initialTab as string;
+  const routePatterns = config.routes ? parseRoutePatterns(config.routes) : undefined;
 
   function NavigationProvider(props: NavigationProviderProps): React.ReactElement {
     const { children, urlSync = false, basePath = '/', onStateChange, initialState } = props;
@@ -82,7 +86,7 @@ export function createRouter<R extends RouteMap>(config: RouterConfig<R>): Route
 
     useEffect(() => {
       if (!urlSync) return;
-      const syncManager = new HistorySyncManager(store, basePath);
+      const syncManager = new HistorySyncManager(store, basePath, routePatterns);
       syncManager.start();
       return () => syncManager.stop();
     }, [store, urlSync, basePath]);
@@ -93,7 +97,11 @@ export function createRouter<R extends RouteMap>(config: RouterConfig<R>): Route
       createElement(
         ScreenRegistryContext.Provider,
         { value: screenRegistry },
-        createElement(GuardRegistryContext.Provider, { value: guardRegistry }, children),
+        createElement(
+          GuardRegistryContext.Provider,
+          { value: guardRegistry },
+          createElement(RoutePatternsContext.Provider, { value: routePatterns ?? null }, children),
+        ),
       ),
     );
   }

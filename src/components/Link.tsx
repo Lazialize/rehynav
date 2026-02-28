@@ -1,5 +1,7 @@
 import type React from 'react';
+import { useContext } from 'react';
 import type { Serializable } from '../core/types.js';
+import { RoutePatternsContext } from '../hooks/context.js';
 import { useNavigation } from '../hooks/useNavigation.js';
 
 export interface LinkProps {
@@ -20,8 +22,21 @@ export function Link({
   replace: shouldReplace,
 }: LinkProps): React.ReactElement {
   const navigation = useNavigation();
+  const routePatterns = useContext(RoutePatternsContext);
 
-  const href = `/${to}`;
+  let href: string;
+  const pattern = routePatterns?.get(to);
+  if (pattern && pattern.paramNames.length > 0 && params) {
+    const pathParams: Record<string, string> = {};
+    for (const name of pattern.paramNames) {
+      if (params[name] !== undefined && params[name] !== null) {
+        pathParams[name] = String(params[name]);
+      }
+    }
+    href = `/${pattern.toPath(pathParams)}`;
+  } else {
+    href = `/${to}`;
+  }
 
   const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     e.preventDefault();

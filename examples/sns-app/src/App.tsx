@@ -16,6 +16,14 @@ import { SettingsScreen } from './screens/SettingsScreen';
 const router = createRouter<AppRoutes>({
   tabs: ['home', 'search', 'profile'],
   initialTab: 'home',
+  routes: [
+    'home',
+    'home/post-detail/:postId',
+    'search',
+    'search/post-detail/:postId',
+    'profile',
+    'profile/settings',
+  ],
 });
 
 // Destructure hooks and components from the router
@@ -64,8 +72,8 @@ export function App() {
       <Screen name="home" component={HomeScreen} />
       <Screen name="search" component={SearchScreen} />
       <Screen name="profile" component={ProfileScreen} />
-      <Screen name="home/post-detail" component={PostDetailScreen} />
-      <Screen name="search/post-detail" component={PostDetailScreen} />
+      <Screen name="home/post-detail/:postId" component={PostDetailScreen} />
+      <Screen name="search/post-detail/:postId" component={PostDetailScreen} />
       <Screen name="profile/settings" component={SettingsScreen} />
       <Screen name="new-post" component={NewPostModal} />
       <Screen name="share" component={ShareSheet} />

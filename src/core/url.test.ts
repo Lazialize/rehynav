@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { parseRoutePatterns } from './path-params.js';
 import { navigationReducer } from './reducer.js';
 import { createInitialState } from './state.js';
 import { stateToUrl, urlToState } from './url.js';
@@ -145,5 +146,97 @@ describe('urlToState', () => {
     expect(Object.keys(state.tabs)).toEqual(['home', 'search', 'profile']);
     expect(state.tabs.home.stack).toHaveLength(1);
     expect(state.tabs.search.stack).toHaveLength(1);
+  });
+});
+
+describe('stateToUrl with routePatterns', () => {
+  const patterns = parseRoutePatterns(['home', 'home/post-detail/:postId', 'search', 'profile']);
+
+  it('embeds path params in URL path', () => {
+    let state = makeState();
+    state = navigationReducer(state, {
+      type: 'PUSH',
+      route: 'home/post-detail/:postId',
+      params: { postId: '42' },
+      id: 'push-1',
+      timestamp: 2000,
+    });
+
+    expect(stateToUrl(state, '/', patterns)).toBe('/home/post-detail/42');
+  });
+
+  it('puts non-path params in query string', () => {
+    let state = makeState();
+    state = navigationReducer(state, {
+      type: 'PUSH',
+      route: 'home/post-detail/:postId',
+      params: { postId: '42', tab: 'comments' },
+      id: 'push-1',
+      timestamp: 2000,
+    });
+
+    const url = stateToUrl(state, '/', patterns);
+    expect(url).toBe('/home/post-detail/42?tab=comments');
+  });
+
+  it('works normally for routes without path params', () => {
+    const state = makeState();
+    expect(stateToUrl(state, '/', patterns)).toBe('/home');
+  });
+});
+
+describe('urlToState with routePatterns', () => {
+  const patterns = parseRoutePatterns(['home', 'home/post-detail/:postId', 'search', 'profile']);
+
+  it('extracts path params from URL', () => {
+    idCounter = 0;
+    const state = urlToState('/home/post-detail/42', config, '/', createId, now, patterns);
+
+    expect(state.activeTab).toBe('home');
+    expect(state.tabs.home.stack).toHaveLength(2);
+    expect(state.tabs.home.stack[1].route).toBe('home/post-detail/:postId');
+    expect(state.tabs.home.stack[1].params).toEqual({ postId: '42' });
+  });
+
+  it('merges path params with query params', () => {
+    idCounter = 0;
+    const state = urlToState(
+      '/home/post-detail/42?tab=comments',
+      config,
+      '/',
+      createId,
+      now,
+      patterns,
+    );
+
+    expect(state.tabs.home.stack[1].route).toBe('home/post-detail/:postId');
+    expect(state.tabs.home.stack[1].params).toEqual({ postId: '42', tab: 'comments' });
+  });
+
+  it('falls back to pathname for unknown routes', () => {
+    idCounter = 0;
+    const state = urlToState('/home/unknown-page', config, '/', createId, now, patterns);
+
+    expect(state.activeTab).toBe('home');
+    expect(state.tabs.home.stack).toHaveLength(2);
+    expect(state.tabs.home.stack[1].route).toBe('home/unknown-page');
+  });
+
+  it('handles tab root URLs normally with patterns', () => {
+    idCounter = 0;
+    const state = urlToState('/home', config, '/', createId, now, patterns);
+
+    expect(state.activeTab).toBe('home');
+    expect(state.tabs.home.stack).toHaveLength(1);
+  });
+
+  it('handles custom base path with patterns', () => {
+    idCounter = 0;
+    const state = urlToState('/app/home/post-detail/42', config, '/app/', createId, now, patterns);
+
+    expect(state.activeTab).toBe('home');
+    expect(state.tabs.home.stack).toHaveLength(2);
+    expect(state.tabs.home.stack[1].route).toBe('home/post-detail/:postId');
+    expect(state.tabs.home.stack[1].params).toEqual({ postId: '42' });
   });
 });
