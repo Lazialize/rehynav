@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { createId } from '../core/id.js';
+import { getCurrentRouteInfo } from '../core/route-utils.js';
 import type { RouteInfo, Serializable } from '../core/types.js';
 import { useGuardRegistry, useNavigationStore } from './context.js';
 
@@ -12,23 +13,6 @@ export interface NavigationActions {
   canGoBack(): boolean;
 }
 
-function getCurrentRouteInfo(store: {
-  getState(): {
-    tabs: Record<string, { stack: { route: string; params: Record<string, Serializable> }[] }>;
-    activeTab: string;
-    overlays: { route: string; params: Record<string, Serializable> }[];
-  };
-}): RouteInfo {
-  const state = store.getState();
-  if (state.overlays.length > 0) {
-    const topOverlay = state.overlays[state.overlays.length - 1];
-    return { route: topOverlay.route, params: topOverlay.params };
-  }
-  const activeTab = state.tabs[state.activeTab];
-  const topEntry = activeTab.stack[activeTab.stack.length - 1];
-  return { route: topEntry.route, params: topEntry.params };
-}
-
 export function useNavigation(): NavigationActions {
   const store = useNavigationStore();
   const guardRegistry = useGuardRegistry();
@@ -36,7 +20,7 @@ export function useNavigation(): NavigationActions {
   return useMemo(
     () => ({
       push(to: string, params: Record<string, Serializable> = {}) {
-        const from = getCurrentRouteInfo(store);
+        const from = getCurrentRouteInfo(store.getState());
         const toInfo: RouteInfo = { route: to, params };
         if (!guardRegistry.check(from, toInfo, 'push')) return;
         store.dispatch({
@@ -51,7 +35,7 @@ export function useNavigation(): NavigationActions {
         const state = store.getState();
         const activeTab = state.tabs[state.activeTab];
         if (activeTab.stack.length <= 1) return;
-        const from = getCurrentRouteInfo(store);
+        const from = getCurrentRouteInfo(state);
         const prevEntry = activeTab.stack[activeTab.stack.length - 2];
         const toInfo: RouteInfo = { route: prevEntry.route, params: prevEntry.params };
         if (!guardRegistry.check(from, toInfo, 'back')) return;
@@ -61,14 +45,14 @@ export function useNavigation(): NavigationActions {
         const state = store.getState();
         const activeTab = state.tabs[state.activeTab];
         if (activeTab.stack.length <= 1) return;
-        const from = getCurrentRouteInfo(store);
+        const from = getCurrentRouteInfo(state);
         const rootEntry = activeTab.stack[0];
         const toInfo: RouteInfo = { route: rootEntry.route, params: rootEntry.params };
         if (!guardRegistry.check(from, toInfo, 'back')) return;
         store.dispatch({ type: 'POP_TO_ROOT' });
       },
       replace(to: string, params: Record<string, Serializable> = {}) {
-        const from = getCurrentRouteInfo(store);
+        const from = getCurrentRouteInfo(store.getState());
         const toInfo: RouteInfo = { route: to, params };
         if (!guardRegistry.check(from, toInfo, 'replace')) return;
         store.dispatch({
@@ -81,7 +65,7 @@ export function useNavigation(): NavigationActions {
       },
       goBack() {
         const state = store.getState();
-        const from = getCurrentRouteInfo(store);
+        const from = getCurrentRouteInfo(state);
         let toInfo: RouteInfo;
 
         if (state.overlays.length > 0) {

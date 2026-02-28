@@ -396,6 +396,60 @@ describe('HistorySyncManager', () => {
     });
   });
 
+  describe('tab switch with overlays', () => {
+    it('should go back then pushState when tab switch closes overlays', () => {
+      manager.start();
+
+      // Open an overlay
+      store.dispatch({
+        type: 'OPEN_OVERLAY',
+        overlayType: 'sheet',
+        route: 'details-sheet',
+        params: {},
+        id: createId(),
+        timestamp: Date.now(),
+      });
+
+      const goSpy = vi.spyOn(window.history, 'go');
+      pushStateSpy.mockClear();
+
+      // Switch tab — should close overlay and push new tab entry
+      store.dispatch({ type: 'SWITCH_TAB', tab: 'search' });
+
+      // Should go back by 1 (overlay delta) then push the new tab entry
+      expect(goSpy).toHaveBeenCalledWith(-1);
+    });
+
+    it('should go back by overlay count then pushState for multiple overlays', () => {
+      manager.start();
+
+      // Open two overlays
+      store.dispatch({
+        type: 'OPEN_OVERLAY',
+        overlayType: 'sheet',
+        route: 'sheet-1',
+        params: {},
+        id: createId(),
+        timestamp: Date.now(),
+      });
+      store.dispatch({
+        type: 'OPEN_OVERLAY',
+        overlayType: 'modal',
+        route: 'modal-1',
+        params: {},
+        id: createId(),
+        timestamp: Date.now(),
+      });
+
+      const goSpy = vi.spyOn(window.history, 'go');
+
+      // Switch tab — should close both overlays
+      store.dispatch({ type: 'SWITCH_TAB', tab: 'search' });
+
+      expect(goSpy).toHaveBeenCalledWith(-2);
+    });
+  });
+
   describe('non-linear routing scenarios', () => {
     it('should not corrupt state when switching from deep tab to shallow tab', () => {
       manager.start();

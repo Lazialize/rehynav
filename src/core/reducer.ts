@@ -153,11 +153,12 @@ export function navigationReducer(
 
     case 'SWITCH_TAB': {
       if (!state.tabs[action.tab]) return state;
-      if (state.activeTab === action.tab) return state;
+      if (state.activeTab === action.tab && state.overlays.length === 0) return state;
 
       return {
         ...state,
         activeTab: action.tab,
+        overlays: [],
         tabs: {
           ...state.tabs,
           [action.tab]: {
@@ -175,11 +176,12 @@ export function navigationReducer(
       const isAlreadyActive = state.activeTab === action.tab;
       const isAlreadyAtRoot = targetTab.stack.length === 1;
 
-      if (isAlreadyActive && isAlreadyAtRoot) return state;
+      if (isAlreadyActive && isAlreadyAtRoot && state.overlays.length === 0) return state;
 
       return {
         ...state,
         activeTab: action.tab,
+        overlays: [],
         tabs: {
           ...state.tabs,
           [action.tab]: {

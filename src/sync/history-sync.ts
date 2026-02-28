@@ -99,7 +99,13 @@ export class HistorySyncManager {
     if (prev.activeTab !== currentState.activeTab) {
       // Tab switch: always push a new history entry so browser back
       // returns to the previous tab with its stack intact
-      window.history.pushState(historyState, '', url);
+      const overlayDelta = prev.overlays.length - currentState.overlays.length;
+      if (overlayDelta > 0) {
+        // Tab switch also closed overlays: rewind overlay history entries, then push tab switch
+        this.goBackAndPush(overlayDelta, historyState, url);
+      } else {
+        window.history.pushState(historyState, '', url);
+      }
     } else if (currentState.overlays.length > prev.overlays.length) {
       // Overlay opened: push
       window.history.pushState(historyState, '', url);
@@ -127,6 +133,21 @@ export class HistorySyncManager {
     }
 
     this.previousState = currentState;
+  }
+
+  /**
+   * Go back in browser history and then push a new entry.
+   * Used when a tab switch also closes overlays: rewind the overlay entries,
+   * then push the new tab's history entry.
+   */
+  private goBackAndPush(delta: number, historyState: HistoryState, url: string): void {
+    this.isSyncing = true;
+    window.history.go(-delta);
+    const onPopState = () => {
+      window.history.pushState(historyState, '', url);
+      this.isSyncing = false;
+    };
+    window.addEventListener('popstate', onPopState, { once: true });
   }
 
   /**

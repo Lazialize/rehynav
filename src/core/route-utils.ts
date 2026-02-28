@@ -1,3 +1,17 @@
+import type { NavigationState, RouteInfo } from './types.js';
+
+/**
+ * Returns the current route info: top overlay if any, otherwise top of active tab stack.
+ */
+export function getCurrentRouteInfo(state: NavigationState): RouteInfo {
+  if (state.overlays.length > 0) {
+    const topOverlay = state.overlays[state.overlays.length - 1];
+    return { route: topOverlay.route, params: topOverlay.params };
+  }
+  const activeTab = state.tabs[state.activeTab];
+  return { route: activeTab.stack.at(-1)!.route, params: activeTab.stack.at(-1)!.params };
+}
+
 /**
  * Resolves which tab a route belongs to based on its first path segment.
  * "home/detail/comments" -> "home"

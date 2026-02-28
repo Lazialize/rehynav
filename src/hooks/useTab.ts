@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { getCurrentRouteInfo } from '../core/route-utils.js';
 import type { RouteInfo } from '../core/types.js';
 import { useGuardRegistry, useNavigationStore } from './context.js';
 import { useNavigationSelector } from './useNavigationSelector.js';
@@ -23,11 +24,7 @@ export function useTab(): TabActions {
       tabs,
       switchTab: (tab: string) => {
         const state = store.getState();
-        const currentTab = state.tabs[state.activeTab];
-        const from: RouteInfo = {
-          route: currentTab.stack[currentTab.stack.length - 1].route,
-          params: currentTab.stack[currentTab.stack.length - 1].params,
-        };
+        const from = getCurrentRouteInfo(state);
         const targetTab = state.tabs[tab];
         if (!targetTab) return;
         const to: RouteInfo = {
@@ -39,11 +36,7 @@ export function useTab(): TabActions {
       },
       switchTabAndReset: (tab: string) => {
         const state = store.getState();
-        const currentTab = state.tabs[state.activeTab];
-        const from: RouteInfo = {
-          route: currentTab.stack[currentTab.stack.length - 1].route,
-          params: currentTab.stack[currentTab.stack.length - 1].params,
-        };
+        const from = getCurrentRouteInfo(state);
         const targetTab = state.tabs[tab];
         if (!targetTab) return;
         const to: RouteInfo = {

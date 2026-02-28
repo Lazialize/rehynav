@@ -210,10 +210,44 @@ describe('navigationReducer', () => {
       expect(next.tabs.home.stack).toHaveLength(2);
     });
 
-    it('is a no-op when switching to the already active tab', () => {
+    it('is a no-op when switching to the already active tab with no overlays', () => {
       const state = makeState();
       const next = dispatch(state, { type: 'SWITCH_TAB', tab: 'home' });
       expect(next).toBe(state);
+    });
+
+    it('clears overlays when switching tabs', () => {
+      let state = makeState();
+      state = dispatch(state, {
+        type: 'OPEN_OVERLAY',
+        overlayType: 'sheet',
+        route: 'share',
+        params: {},
+        id: 'overlay-1',
+        timestamp: 2000,
+      });
+      expect(state.overlays).toHaveLength(1);
+
+      const next = dispatch(state, { type: 'SWITCH_TAB', tab: 'search' });
+      expect(next.overlays).toHaveLength(0);
+      expect(next.activeTab).toBe('search');
+    });
+
+    it('clears overlays when tapping the same tab', () => {
+      let state = makeState();
+      state = dispatch(state, {
+        type: 'OPEN_OVERLAY',
+        overlayType: 'modal',
+        route: 'login',
+        params: {},
+        id: 'overlay-1',
+        timestamp: 2000,
+      });
+      expect(state.overlays).toHaveLength(1);
+
+      const next = dispatch(state, { type: 'SWITCH_TAB', tab: 'home' });
+      expect(next.overlays).toHaveLength(0);
+      expect(next.activeTab).toBe('home');
     });
 
     it('returns same state for non-existent tab', () => {
@@ -246,10 +280,42 @@ describe('navigationReducer', () => {
       expect(next.tabs.search.stack[0].route).toBe('search');
     });
 
-    it('is a no-op when already on the tab at root', () => {
+    it('is a no-op when already on the tab at root with no overlays', () => {
       const state = makeState();
       const next = dispatch(state, { type: 'SWITCH_TAB_AND_RESET', tab: 'home' });
       expect(next).toBe(state);
+    });
+
+    it('clears overlays when switching and resetting tabs', () => {
+      let state = makeState();
+      state = dispatch(state, {
+        type: 'OPEN_OVERLAY',
+        overlayType: 'sheet',
+        route: 'share',
+        params: {},
+        id: 'overlay-1',
+        timestamp: 2000,
+      });
+
+      const next = dispatch(state, { type: 'SWITCH_TAB_AND_RESET', tab: 'search' });
+      expect(next.overlays).toHaveLength(0);
+      expect(next.activeTab).toBe('search');
+    });
+
+    it('clears overlays when tapping the same tab at root', () => {
+      let state = makeState();
+      state = dispatch(state, {
+        type: 'OPEN_OVERLAY',
+        overlayType: 'modal',
+        route: 'login',
+        params: {},
+        id: 'overlay-1',
+        timestamp: 2000,
+      });
+
+      const next = dispatch(state, { type: 'SWITCH_TAB_AND_RESET', tab: 'home' });
+      expect(next.overlays).toHaveLength(0);
+      expect(next.activeTab).toBe('home');
     });
 
     it('returns same state for non-existent tab', () => {
