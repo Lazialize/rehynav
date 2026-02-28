@@ -1,0 +1,305 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createId } from '../core/id.js';
+import { createInitialState } from '../core/state.js';
+import type { NavigationStore } from '../store/navigation-store.js';
+import { createNavigationStore } from '../store/navigation-store.js';
+import { HistorySyncManager } from './history-sync.js';
+
+function createTestStore(
+  config = { tabs: ['home', 'search', 'profile'], initialTab: 'home' },
+): NavigationStore {
+  return createNavigationStore(createInitialState(config, createId, Date.now));
+}
+
+describe('HistorySyncManager', () => {
+  let store: NavigationStore;
+  let manager: HistorySyncManager;
+  let pushStateSpy: ReturnType<typeof vi.spyOn>;
+  let replaceStateSpy: ReturnType<typeof vi.spyOn>;
+  let addEventSpy: ReturnType<typeof vi.spyOn>;
+  let removeEventSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    store = createTestStore();
+    manager = new HistorySyncManager(store, '/');
+
+    pushStateSpy = vi.spyOn(window.history, 'pushState').mockImplementation(() => {});
+    replaceStateSpy = vi.spyOn(window.history, 'replaceState').mockImplementation(() => {});
+    vi.spyOn(window.history, 'go').mockImplementation(() => {});
+    addEventSpy = vi.spyOn(window, 'addEventListener');
+    removeEventSpy = vi.spyOn(window, 'removeEventListener');
+
+    // Clear sessionStorage
+    sessionStorage.clear();
+  });
+
+  afterEach(() => {
+    manager.stop();
+    vi.restoreAllMocks();
+  });
+
+  describe('start()', () => {
+    it('should replaceState with initial state', () => {
+      manager.start();
+
+      expect(replaceStateSpy).toHaveBeenCalledTimes(1);
+      const [historyState, , url] = replaceStateSpy.mock.calls[0];
+      expect(url).toBe('/home');
+      expect(historyState).toEqual(
+        expect.objectContaining({
+          activeTab: 'home',
+          entryId: expect.any(String),
+        }),
+      );
+    });
+
+    it('should add popstate listener', () => {
+      manager.start();
+      expect(addEventSpy).toHaveBeenCalledWith('popstate', expect.any(Function));
+    });
+
+    it('should persist initial params to sessionStorage', () => {
+      manager.start();
+      const state = store.getState();
+      const topEntry = state.tabs[state.activeTab].stack[0];
+      const stored = sessionStorage.getItem(`rehynav:${topEntry.id}`);
+      expect(stored).toBe(JSON.stringify(topEntry.params));
+    });
+  });
+
+  describe('stop()', () => {
+    it('should remove popstate listener', () => {
+      manager.start();
+      manager.stop();
+      expect(removeEventSpy).toHaveBeenCalledWith('popstate', expect.any(Function));
+    });
+
+    it('should unsubscribe from store', () => {
+      manager.start();
+
+      // Reset after start
+      pushStateSpy.mockClear();
+      replaceStateSpy.mockClear();
+
+      manager.stop();
+
+      // Dispatch an action: nothing should happen in history
+      store.dispatch({
+        type: 'PUSH',
+        route: 'home/detail',
+        params: {},
+        id: createId(),
+        timestamp: Date.now(),
+      });
+
+      expect(pushStateSpy).not.toHaveBeenCalled();
+      expect(replaceStateSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('syncHistoryFromStateChange()', () => {
+    it('should pushState when depth increases (PUSH action)', () => {
+      manager.start();
+      pushStateSpy.mockClear();
+
+      store.dispatch({
+        type: 'PUSH',
+        route: 'home/detail',
+        params: { id: '42' },
+        id: createId(),
+        timestamp: Date.now(),
+      });
+
+      expect(pushStateSpy).toHaveBeenCalledTimes(1);
+      const [historyState, , url] = pushStateSpy.mock.calls[0];
+      expect(url).toBe('/home/detail?id=42');
+      expect(historyState.activeTab).toBe('home');
+    });
+
+    it('should replaceState when depth stays same (REPLACE action)', () => {
+      manager.start();
+      replaceStateSpy.mockClear();
+
+      store.dispatch({
+        type: 'REPLACE',
+        route: 'home/other',
+        params: {},
+        id: createId(),
+        timestamp: Date.now(),
+      });
+
+      expect(replaceStateSpy).toHaveBeenCalledTimes(1);
+      const [, , url] = replaceStateSpy.mock.calls[0];
+      expect(url).toBe('/home/other');
+    });
+
+    it('should go back when depth decreases (POP action)', () => {
+      manager.start();
+
+      // Push first to increase depth
+      store.dispatch({
+        type: 'PUSH',
+        route: 'home/detail',
+        params: {},
+        id: createId(),
+        timestamp: Date.now(),
+      });
+
+      const goSpy = vi.spyOn(window.history, 'go');
+
+      store.dispatch({ type: 'POP' });
+
+      expect(goSpy).toHaveBeenCalledWith(-1);
+    });
+  });
+
+  describe('handlePopState()', () => {
+    it('should dispatch RESTORE_TO_ENTRY when popstate fires with valid state', () => {
+      manager.start();
+
+      // Push to get a second entry
+      store.dispatch({
+        type: 'PUSH',
+        route: 'home/detail',
+        params: {},
+        id: createId(),
+        timestamp: Date.now(),
+      });
+
+      const initialState = store.getState();
+      const rootEntryId = initialState.tabs.home.stack[0].id;
+
+      const dispatchSpy = vi.spyOn(store, 'dispatch');
+
+      // Simulate popstate
+      const event = new PopStateEvent('popstate', {
+        state: { entryId: rootEntryId, activeTab: 'home', tabStacks: {} },
+      });
+      window.dispatchEvent(event);
+
+      expect(dispatchSpy).toHaveBeenCalledWith({
+        type: 'RESTORE_TO_ENTRY',
+        entryId: rootEntryId,
+      });
+    });
+
+    it('should ignore popstate with null state', () => {
+      manager.start();
+
+      const dispatchSpy = vi.spyOn(store, 'dispatch');
+      dispatchSpy.mockClear();
+
+      const event = new PopStateEvent('popstate', { state: null });
+      window.dispatchEvent(event);
+
+      expect(dispatchSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('createHistoryState()', () => {
+    it('should create history state with entryId, activeTab, and tabStacks', () => {
+      const state = store.getState();
+      const result = manager.createHistoryState(state);
+
+      expect(result.entryId).toBe(state.tabs.home.stack[0].id);
+      expect(result.activeTab).toBe('home');
+      expect(result.tabStacks).toEqual({
+        home: ['home'],
+        search: ['search'],
+        profile: ['profile'],
+      });
+    });
+  });
+
+  describe('getTotalDepth()', () => {
+    it('should return stack length + overlays length', () => {
+      const state = store.getState();
+      expect(manager.getTotalDepth(state)).toBe(1); // just root entry
+
+      // Push a screen
+      store.dispatch({
+        type: 'PUSH',
+        route: 'home/detail',
+        params: {},
+        id: createId(),
+        timestamp: Date.now(),
+      });
+      expect(manager.getTotalDepth(store.getState())).toBe(2);
+
+      // Open overlay
+      store.dispatch({
+        type: 'OPEN_OVERLAY',
+        overlayType: 'modal',
+        route: 'login',
+        params: {},
+        id: createId(),
+        timestamp: Date.now(),
+      });
+      expect(manager.getTotalDepth(store.getState())).toBe(3);
+    });
+  });
+
+  describe('getTopEntry()', () => {
+    it('should return top stack entry when no overlays', () => {
+      const state = store.getState();
+      const topEntry = manager.getTopEntry(state);
+      expect(topEntry.route).toBe('home');
+    });
+
+    it('should return top overlay when overlays exist', () => {
+      store.dispatch({
+        type: 'OPEN_OVERLAY',
+        overlayType: 'modal',
+        route: 'settings',
+        params: {},
+        id: createId(),
+        timestamp: Date.now(),
+      });
+      const topEntry = manager.getTopEntry(store.getState());
+      expect(topEntry.route).toBe('settings');
+    });
+  });
+
+  describe('persistParams()', () => {
+    it('should save params to sessionStorage', () => {
+      manager.persistParams('entry-1', { foo: 'bar' });
+      const stored = sessionStorage.getItem('rehynav:entry-1');
+      expect(stored).toBe(JSON.stringify({ foo: 'bar' }));
+    });
+
+    it('should not throw when sessionStorage fails', () => {
+      // Override sessionStorage with a throwing implementation
+      const originalSetItem = sessionStorage.setItem.bind(sessionStorage);
+      sessionStorage.setItem = () => {
+        throw new Error('QuotaExceeded');
+      };
+      try {
+        expect(() => manager.persistParams('entry-1', { foo: 'bar' })).not.toThrow();
+      } finally {
+        sessionStorage.setItem = originalSetItem;
+      }
+    });
+  });
+
+  describe('overlay depth tracking', () => {
+    it('should pushState for overlay open and go back for overlay close', () => {
+      manager.start();
+      pushStateSpy.mockClear();
+
+      store.dispatch({
+        type: 'OPEN_OVERLAY',
+        overlayType: 'sheet',
+        route: 'details-sheet',
+        params: {},
+        id: createId(),
+        timestamp: Date.now(),
+      });
+
+      expect(pushStateSpy).toHaveBeenCalledTimes(1);
+
+      const goSpy = vi.spyOn(window.history, 'go');
+      store.dispatch({ type: 'CLOSE_OVERLAY' });
+      expect(goSpy).toHaveBeenCalledWith(-1);
+    });
+  });
+});
