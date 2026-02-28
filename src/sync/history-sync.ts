@@ -93,11 +93,12 @@ export class HistorySyncManager {
       // Replace after going back to update URL
       this.isSyncing = true;
       window.history.go(-delta);
-      // We use a timeout to replace state after the browser processes the go()
-      setTimeout(() => {
+      // Wait for the popstate event from go() before replacing state and resetting sync flag
+      const onGoPopState = () => {
         window.history.replaceState(historyState, '', url);
         this.isSyncing = false;
-      }, 0);
+      };
+      window.addEventListener('popstate', onGoPopState, { once: true });
     } else {
       // Same depth, different route: replace
       window.history.replaceState(historyState, '', url);

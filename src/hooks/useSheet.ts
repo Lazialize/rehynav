@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { createId } from '../core/id.js';
-import type { OverlayEntry, Serializable } from '../core/types.js';
-import { useNavigationStore } from './context.js';
+import type { OverlayEntry, RouteInfo, Serializable } from '../core/types.js';
+import { useGuardRegistry, useNavigationStore } from './context.js';
 import { useNavigationSelector } from './useNavigationSelector.js';
 
 function findLastOverlay(
@@ -23,12 +23,25 @@ export interface SheetActions {
 
 export function useSheet(): SheetActions {
   const store = useNavigationStore();
+  const guardRegistry = useGuardRegistry();
   const overlays = useNavigationSelector((s) => s.overlays);
   const currentSheet = findLastOverlay(overlays, 'sheet');
 
   return useMemo(
     () => ({
       open(name: string, params: Record<string, Serializable> = {}) {
+        const state = store.getState();
+        let from: RouteInfo;
+        if (state.overlays.length > 0) {
+          const topOverlay = state.overlays[state.overlays.length - 1];
+          from = { route: topOverlay.route, params: topOverlay.params };
+        } else {
+          const activeTab = state.tabs[state.activeTab];
+          const topEntry = activeTab.stack[activeTab.stack.length - 1];
+          from = { route: topEntry.route, params: topEntry.params };
+        }
+        const to: RouteInfo = { route: name, params };
+        if (!guardRegistry.check(from, to, 'push')) return;
         store.dispatch({
           type: 'OPEN_OVERLAY',
           overlayType: 'sheet',
@@ -44,6 +57,6 @@ export function useSheet(): SheetActions {
       isOpen: currentSheet !== undefined,
       current: currentSheet?.route ?? null,
     }),
-    [store, currentSheet],
+    [store, guardRegistry, currentSheet],
   );
 }

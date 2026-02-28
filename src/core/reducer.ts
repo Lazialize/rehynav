@@ -49,7 +49,16 @@ export function navigationReducer(
   switch (action.type) {
     case 'PUSH': {
       const tab = resolveTabForRoute(action.route, state.tabOrder);
-      if (!tab) return state;
+      if (!tab) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn(
+            `[rehynav] PUSH failed: route "${action.route}" does not match any registered tab. ` +
+              `Tab prefixes: ${state.tabOrder.join(', ')}. ` +
+              `Routes must start with a tab name (e.g., "${state.tabOrder[0]}/screen-name").`,
+          );
+        }
+        return state;
+      }
 
       const newEntry: StackEntry = {
         id: action.id,
@@ -110,6 +119,18 @@ export function navigationReducer(
     case 'REPLACE': {
       const activeTabState = state.tabs[state.activeTab];
       if (activeTabState.stack.length === 0) return state;
+
+      const routeTab = resolveTabForRoute(action.route, state.tabOrder);
+      if (routeTab && routeTab !== state.activeTab) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn(
+            `[rehynav] REPLACE failed: route "${action.route}" belongs to tab "${routeTab}", ` +
+              `but the active tab is "${state.activeTab}". ` +
+              `Use PUSH to navigate to a different tab's route.`,
+          );
+        }
+        return state;
+      }
 
       const newEntry: StackEntry = {
         id: action.id,

@@ -25,6 +25,8 @@ export { useModal } from './hooks/useModal.js';
 export type { NavigationActions } from './hooks/useNavigation.js';
 // Hooks (for advanced global registration usage)
 export { useNavigation } from './hooks/useNavigation.js';
+// Utilities
+export { shallowEqual } from './hooks/useNavigationSelector.js';
 export type { RouteInfoResult } from './hooks/useRoute.js';
 export { useRoute } from './hooks/useRoute.js';
 export type { SheetActions } from './hooks/useSheet.js';

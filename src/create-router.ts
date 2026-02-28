@@ -1,5 +1,5 @@
 import type React from 'react';
-import { createElement, useEffect, useMemo, useRef } from 'react';
+import { createElement, useEffect, useRef } from 'react';
 import { createId } from './core/id.js';
 import { createNavigationGuardRegistry } from './core/navigation-guard.js';
 import { createInitialState } from './core/state.js';
@@ -61,11 +61,17 @@ export function createRouter<R extends RouteMap>(config: RouterConfig<R>): Route
     }
     const store = storeRef.current;
 
-    const screenRegistry = useMemo(
-      () => createScreenRegistry() as unknown as ScreenRegistryForHooks,
-      [],
-    );
-    const guardRegistry = useMemo(() => createNavigationGuardRegistry(), []);
+    const screenRegistryRef = useRef<ScreenRegistryForHooks | null>(null);
+    if (screenRegistryRef.current === null) {
+      screenRegistryRef.current = createScreenRegistry() as unknown as ScreenRegistryForHooks;
+    }
+    const screenRegistry = screenRegistryRef.current;
+
+    const guardRegistryRef = useRef<ReturnType<typeof createNavigationGuardRegistry> | null>(null);
+    if (guardRegistryRef.current === null) {
+      guardRegistryRef.current = createNavigationGuardRegistry();
+    }
+    const guardRegistry = guardRegistryRef.current;
 
     useEffect(() => {
       if (!onStateChange) return;

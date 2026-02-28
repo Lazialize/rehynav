@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef } from 'react';
 import { useNavigationSelector } from '../hooks/useNavigationSelector.js';
 import { useTab } from '../hooks/useTab.js';
 import type { TabBarProps, TabInfo, TabNavigatorProps } from '../types/props.js';
@@ -47,12 +47,9 @@ function TabContent({
 }): React.ReactElement {
   const { activeTab, tabs } = useTab();
   const tabStates = useNavigationSelector((s) => s.tabs);
-  const [visitedTabs] = useState(() => new Set<string>([activeTab]));
-
-  // Track visited tabs
-  if (!visitedTabs.has(activeTab)) {
-    visitedTabs.add(activeTab);
-  }
+  const visitedTabsRef = useRef(new Set<string>([activeTab]));
+  visitedTabsRef.current.add(activeTab);
+  const visitedTabs = visitedTabsRef.current;
 
   return (
     <>

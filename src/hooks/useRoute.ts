@@ -2,7 +2,7 @@ import { useContext } from 'react';
 import type { Serializable } from '../core/types.js';
 import { stateToUrl } from '../core/url.js';
 import { RouteContext } from './context.js';
-import { useNavigationSelector } from './useNavigationSelector.js';
+import { shallowEqual, useNavigationSelector } from './useNavigationSelector.js';
 
 export interface RouteInfoResult {
   name: string;
@@ -22,7 +22,7 @@ export function useRoute(): RouteInfoResult {
       params: topEntry.params,
       path: stateToUrl(state),
     };
-  });
+  }, shallowEqual);
 
   // If inside a Screen component, use the route context for name/params
   if (routeCtx) {
