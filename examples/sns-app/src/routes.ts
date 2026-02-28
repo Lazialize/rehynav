@@ -20,5 +20,6 @@ export type AppRoutes = {
     share: { postId: string; title: string };
   };
 };
-satisfies;
-RouteMap;
+
+// Compile-time check: ensure AppRoutes conforms to RouteMap
+type _Check = AppRoutes extends RouteMap ? true : never;
