@@ -92,6 +92,7 @@ export type NavigationAction =
   | { type: 'CLOSE_OVERLAY'; route?: string }
   | { type: 'GO_BACK' }
   | { type: 'RESTORE_TO_ENTRY'; entryId: string }
+  | { type: 'RESET_STATE'; state: NavigationState }
   | { type: 'SET_BADGE'; tab: string; badge: string | number | undefined };
 
 // ---- Navigation Direction ----

@@ -4,11 +4,18 @@ import { parseRoutePatterns } from '../core/path-params.js';
 import { createInitialState } from '../core/state.js';
 import type { NavigationStore } from '../store/navigation-store.js';
 import { createNavigationStore } from '../store/navigation-store.js';
-import { HistorySyncManager } from './history-sync.js';
+import { type HistorySyncConfig, HistorySyncManager } from './history-sync.js';
 
-function createTestStore(
-  config = { tabs: ['home', 'search', 'profile'], initialTab: 'home' },
-): NavigationStore {
+const defaultConfig = { tabs: ['home', 'search', 'profile'], initialTab: 'home' };
+
+const defaultSyncConfig: HistorySyncConfig = {
+  tabs: defaultConfig.tabs,
+  initialTab: defaultConfig.initialTab,
+  createId,
+  now: Date.now,
+};
+
+function createTestStore(config = defaultConfig): NavigationStore {
   return createNavigationStore(createInitialState(config, createId, Date.now));
 }
 
@@ -538,6 +545,107 @@ describe('HistorySyncManager', () => {
 
       expect(goSpy).not.toHaveBeenCalled();
       expect(pushStateSpy).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('browser forward after back (URL reconstruction)', () => {
+    it('should reconstruct state from URL when entry not found after forward navigation', () => {
+      const patterns = parseRoutePatterns([
+        'home',
+        'search',
+        'search/post-detail/:postId',
+        'profile',
+      ]);
+
+      // Start with a store where search stack is at root only
+      // (simulating state after a back navigation that trimmed the stack)
+      store = createTestStore();
+      manager = new HistorySyncManager(store, '/', patterns, defaultSyncConfig);
+
+      // Mock window.location to the forward URL the browser would show
+      Object.defineProperty(window, 'location', {
+        value: { pathname: '/search/post-detail/1', search: '' },
+        writable: true,
+        configurable: true,
+      });
+
+      manager.start();
+
+      // Simulate browser forward: popstate with an entryId that no longer
+      // exists (it was removed by a previous back navigation's stack trim)
+      const event = new PopStateEvent('popstate', {
+        state: {
+          entryId: 'deleted-entry-id',
+          activeTab: 'search',
+          tabStacks: {
+            home: ['home'],
+            search: ['search', 'search/post-detail/:postId'],
+            profile: ['profile'],
+          },
+        },
+      });
+      window.dispatchEvent(event);
+
+      // State should be reconstructed from URL
+      const state = store.getState();
+      expect(state.activeTab).toBe('search');
+      expect(state.tabs.search.stack).toHaveLength(2);
+      expect(state.tabs.search.stack[1].route).toBe('search/post-detail/:postId');
+      expect(state.tabs.search.stack[1].params.postId).toBe('1');
+    });
+
+    it('should update history entry with new IDs after reconstruction', () => {
+      store = createTestStore();
+      manager = new HistorySyncManager(store, '/', undefined, defaultSyncConfig);
+
+      Object.defineProperty(window, 'location', {
+        value: { pathname: '/search/detail', search: '' },
+        writable: true,
+        configurable: true,
+      });
+
+      manager.start();
+
+      const replaceSpy = vi.mocked(window.history.replaceState);
+      replaceSpy.mockClear();
+
+      // Simulate forward with non-existent entry
+      const event = new PopStateEvent('popstate', {
+        state: {
+          entryId: 'deleted-entry-id',
+          activeTab: 'search',
+          tabStacks: { home: ['home'], search: ['search', 'search/detail'], profile: ['profile'] },
+        },
+      });
+      window.dispatchEvent(event);
+
+      // replaceState should have been called to update history with new entry IDs
+      expect(replaceSpy).toHaveBeenCalled();
+    });
+
+    it('should reconstruct to correct tab when forward navigates to non-initial tab', () => {
+      store = createTestStore();
+      manager = new HistorySyncManager(store, '/', undefined, defaultSyncConfig);
+
+      Object.defineProperty(window, 'location', {
+        value: { pathname: '/profile', search: '' },
+        writable: true,
+        configurable: true,
+      });
+
+      manager.start();
+
+      const event = new PopStateEvent('popstate', {
+        state: {
+          entryId: 'deleted-entry-id',
+          activeTab: 'profile',
+          tabStacks: { home: ['home'], search: ['search'], profile: ['profile'] },
+        },
+      });
+      window.dispatchEvent(event);
+
+      const state = store.getState();
+      expect(state.activeTab).toBe('profile');
     });
   });
 

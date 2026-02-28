@@ -285,6 +285,10 @@ export function navigationReducer(
       };
     }
 
+    case 'RESET_STATE': {
+      return action.state;
+    }
+
     case 'SET_BADGE': {
       return {
         ...state,

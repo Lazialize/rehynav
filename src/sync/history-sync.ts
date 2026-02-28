@@ -1,6 +1,6 @@
 import type { RoutePattern } from '../core/path-params.js';
 import type { NavigationState, OverlayEntry, StackEntry } from '../core/types.js';
-import { stateToUrl } from '../core/url.js';
+import { stateToUrl, urlToState } from '../core/url.js';
 import type { NavigationStore } from '../store/navigation-store.js';
 
 interface HistoryState {
@@ -9,10 +9,18 @@ interface HistoryState {
   tabStacks: Record<string, string[]>;
 }
 
+export interface HistorySyncConfig {
+  tabs: string[];
+  initialTab: string;
+  createId: () => string;
+  now: () => number;
+}
+
 export class HistorySyncManager {
   private store: NavigationStore;
   private basePath: string;
   private routePatterns?: Map<string, RoutePattern>;
+  private config: HistorySyncConfig;
   private unsubscribe: (() => void) | null = null;
   private popStateHandler: ((event: PopStateEvent) => void) | null = null;
   private previousState: NavigationState | null = null;
@@ -22,10 +30,12 @@ export class HistorySyncManager {
     store: NavigationStore,
     basePath: string = '/',
     routePatterns?: Map<string, RoutePattern>,
+    config?: HistorySyncConfig,
   ) {
     this.store = store;
     this.basePath = basePath;
     this.routePatterns = routePatterns;
+    this.config = config ?? { tabs: [], initialTab: '', createId: () => '', now: () => 0 };
   }
 
   start(): void {
@@ -76,6 +86,29 @@ export class HistorySyncManager {
     this.isSyncing = true;
     try {
       this.store.dispatch({ type: 'RESTORE_TO_ENTRY', entryId: historyState.entryId });
+
+      // Check if restoration succeeded by verifying the top entry matches
+      const newState = this.store.getState();
+      const topEntryId = this.getTopEntryId(newState);
+      if (topEntryId !== historyState.entryId) {
+        // Entry was not found (destroyed by previous back navigation).
+        // Reconstruct navigation state from the current URL.
+        const reconstructed = urlToState(
+          window.location.pathname + window.location.search,
+          this.config,
+          this.basePath,
+          this.config.createId,
+          this.config.now,
+          this.routePatterns,
+        );
+        this.store.dispatch({ type: 'RESET_STATE', state: reconstructed });
+
+        // Update history entry with the new entry IDs
+        const updatedState = this.store.getState();
+        const updatedHistoryState = this.createHistoryState(updatedState);
+        window.history.replaceState(updatedHistoryState, '', undefined);
+      }
+
       this.previousState = this.store.getState();
     } finally {
       this.isSyncing = false;

@@ -4,7 +4,8 @@ import { createId } from './core/id.js';
 import { createNavigationGuardRegistry } from './core/navigation-guard.js';
 import { parseRoutePatterns } from './core/path-params.js';
 import { createInitialState } from './core/state.js';
-import type { NavigationDirection, RouteInfo } from './core/types.js';
+import type { NavigationDirection, NavigationState, RouteInfo } from './core/types.js';
+import { urlToState } from './core/url.js';
 import {
   GuardRegistryContext,
   NavigationStoreContext,
@@ -68,9 +69,26 @@ export function createRouter<
 
     const storeRef = useRef<ReturnType<typeof createNavigationStore> | null>(null);
     if (storeRef.current === null) {
-      storeRef.current = createNavigationStore(
-        initialState ?? createInitialState({ tabs: tabNames, initialTab }, createId, Date.now),
-      );
+      let resolvedInitialState: NavigationState;
+      if (initialState) {
+        resolvedInitialState = initialState;
+      } else if (urlSync && typeof window !== 'undefined') {
+        resolvedInitialState = urlToState(
+          window.location.pathname + window.location.search,
+          { tabs: tabNames, initialTab },
+          basePath,
+          createId,
+          Date.now,
+          routePatterns,
+        );
+      } else {
+        resolvedInitialState = createInitialState(
+          { tabs: tabNames, initialTab },
+          createId,
+          Date.now,
+        );
+      }
+      storeRef.current = createNavigationStore(resolvedInitialState);
     }
     const store = storeRef.current;
 
@@ -99,7 +117,12 @@ export function createRouter<
 
     useEffect(() => {
       if (!urlSync) return;
-      const syncManager = new HistorySyncManager(store, basePath, routePatterns);
+      const syncManager = new HistorySyncManager(store, basePath, routePatterns, {
+        tabs: tabNames,
+        initialTab,
+        createId,
+        now: Date.now,
+      });
       syncManager.start();
       return () => syncManager.stop();
     }, [store, urlSync, basePath]);

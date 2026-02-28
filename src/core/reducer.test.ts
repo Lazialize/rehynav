@@ -631,6 +631,18 @@ describe('navigationReducer', () => {
     });
   });
 
+  describe('RESET_STATE', () => {
+    it('replaces entire state with the provided state', () => {
+      const state = makeState();
+      const newState = makeState();
+      newState.activeTab = 'search';
+      newState.tabs.search.hasBeenActive = true;
+      const next = dispatch(state, { type: 'RESET_STATE', state: newState });
+      expect(next).toBe(newState);
+      expect(next.activeTab).toBe('search');
+    });
+  });
+
   describe('SET_BADGE', () => {
     it('sets a badge value on a tab', () => {
       const state = makeState();
