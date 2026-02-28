@@ -24,16 +24,21 @@ import type { SheetActions } from './hooks/useSheet.js';
 import { useSheet } from './hooks/useSheet.js';
 import type { TabActions } from './hooks/useTab.js';
 import { useTab } from './hooks/useTab.js';
+import type { OverlayDef, TabDef } from './route-helpers.js';
 import { createNavigationStore } from './store/navigation-store.js';
-import { createScreenRegistry } from './store/screen-registry.js';
+import { createScreenRegistry, type ScreenRegistration } from './store/screen-registry.js';
 import { HistorySyncManager } from './sync/history-sync.js';
 import type { NavigationProviderProps } from './types/props.js';
-import type { RouteMap } from './types/routes.js';
 
-export interface RouterConfig<R extends RouteMap> {
-  tabs: Array<keyof R['tabs'] & string>;
-  initialTab: keyof R['tabs'] & string;
-  routes?: string[];
+export interface RouterConfig<
+  TTabs extends TabDef[] = TabDef[],
+  TModals extends OverlayDef[] = [],
+  TSheets extends OverlayDef[] = [],
+> {
+  tabs: [...TTabs];
+  modals?: [...TModals];
+  sheets?: [...TSheets];
+  initialTab: TTabs[number]['name'];
 }
 
 export interface RouterInstance {
@@ -49,10 +54,14 @@ export interface RouterInstance {
   useBackHandler: (handler: () => boolean) => void;
 }
 
-export function createRouter<R extends RouteMap>(config: RouterConfig<R>): RouterInstance {
-  const tabs = config.tabs as string[];
+export function createRouter<
+  TTabs extends TabDef[],
+  TModals extends OverlayDef[],
+  TSheets extends OverlayDef[],
+>(config: RouterConfig<TTabs, TModals, TSheets>): RouterInstance {
+  const { tabNames, registrations, routes } = parseConfig(config);
   const initialTab = config.initialTab as string;
-  const routePatterns = config.routes ? parseRoutePatterns(config.routes) : undefined;
+  const routePatterns = routes.length > 0 ? parseRoutePatterns(routes) : undefined;
 
   function NavigationProvider(props: NavigationProviderProps): React.ReactElement {
     const { children, urlSync = false, basePath = '/', onStateChange, initialState } = props;
@@ -60,14 +69,18 @@ export function createRouter<R extends RouteMap>(config: RouterConfig<R>): Route
     const storeRef = useRef<ReturnType<typeof createNavigationStore> | null>(null);
     if (storeRef.current === null) {
       storeRef.current = createNavigationStore(
-        initialState ?? createInitialState({ tabs, initialTab }, createId, Date.now),
+        initialState ?? createInitialState({ tabs: tabNames, initialTab }, createId, Date.now),
       );
     }
     const store = storeRef.current;
 
     const screenRegistryRef = useRef<ScreenRegistryForHooks | null>(null);
     if (screenRegistryRef.current === null) {
-      screenRegistryRef.current = createScreenRegistry() as unknown as ScreenRegistryForHooks;
+      const registry = createScreenRegistry();
+      for (const reg of registrations) {
+        registry.register(reg);
+      }
+      screenRegistryRef.current = registry as unknown as ScreenRegistryForHooks;
     }
     const screenRegistry = screenRegistryRef.current;
 
@@ -107,13 +120,64 @@ export function createRouter<R extends RouteMap>(config: RouterConfig<R>): Route
   }
 
   return {
-    NavigationProvider: NavigationProvider,
-    useNavigation: useNavigation,
-    useRoute: useRoute,
-    useTab: useTab,
-    useModal: useModal,
-    useSheet: useSheet,
-    useBeforeNavigate: useBeforeNavigate,
-    useBackHandler: useBackHandler,
+    NavigationProvider,
+    useNavigation,
+    useRoute,
+    useTab,
+    useModal,
+    useSheet,
+    useBeforeNavigate,
+    useBackHandler,
   };
+}
+
+// --- Config parser ---
+
+// biome-ignore lint/suspicious/noExplicitAny: accepts any config shape
+function parseConfig(config: RouterConfig<any, any, any>): {
+  tabNames: string[];
+  registrations: ScreenRegistration[];
+  routes: string[];
+} {
+  const tabNames: string[] = [];
+  const registrations: ScreenRegistration[] = [];
+  const routes: string[] = [];
+
+  for (const tabDef of config.tabs) {
+    tabNames.push(tabDef.name);
+    registrations.push({ route: tabDef.name, component: tabDef.component });
+    routes.push(tabDef.name);
+
+    for (const stackDef of tabDef.children) {
+      const fullRoute = `${tabDef.name}/${stackDef.path}`;
+      registrations.push({
+        route: fullRoute,
+        component: stackDef.component,
+        options: stackDef.options,
+      });
+      routes.push(fullRoute);
+    }
+  }
+
+  if (config.modals) {
+    for (const modalDef of config.modals) {
+      registrations.push({
+        route: modalDef.name,
+        component: modalDef.component,
+        options: modalDef.options,
+      });
+    }
+  }
+
+  if (config.sheets) {
+    for (const sheetDef of config.sheets) {
+      registrations.push({
+        route: sheetDef.name,
+        component: sheetDef.component,
+        options: sheetDef.options,
+      });
+    }
+  }
+
+  return { tabNames, registrations, routes };
 }
