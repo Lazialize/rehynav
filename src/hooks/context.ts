@@ -38,7 +38,12 @@ export const RoutePatternsContext: React.Context<Map<string, RoutePattern> | nul
 export const RouteContext: React.Context<{
   route: string;
   params: Record<string, Serializable>;
-} | null> = createContext<{ route: string; params: Record<string, Serializable> } | null>(null);
+  entryId: string;
+} | null> = createContext<{
+  route: string;
+  params: Record<string, Serializable>;
+  entryId: string;
+} | null>(null);
 
 export function useNavigationStore(): NavigationStoreForHooks {
   const store = useContext(NavigationStoreContext);

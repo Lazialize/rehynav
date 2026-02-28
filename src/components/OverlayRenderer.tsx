@@ -13,7 +13,9 @@ export function OverlayRenderer(): React.ReactElement {
 
         return (
           <div key={overlay.id} data-route-type="overlay" className="rehynav-overlay">
-            <RouteContext.Provider value={{ route: overlay.route, params: overlay.params }}>
+            <RouteContext.Provider
+              value={{ route: overlay.route, params: overlay.params, entryId: overlay.id }}
+            >
               {registration ? (
                 <registration.component params={overlay.params} />
               ) : (

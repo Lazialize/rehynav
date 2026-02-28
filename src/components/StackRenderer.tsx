@@ -23,7 +23,9 @@ export function StackRenderer({ stack }: StackRendererProps): React.ReactElement
             data-route-type="stack"
             style={{ display: isTop ? 'block' : 'none' }}
           >
-            <RouteContext.Provider value={{ route: entry.route, params: entry.params }}>
+            <RouteContext.Provider
+              value={{ route: entry.route, params: entry.params, entryId: entry.id }}
+            >
               {registration ? (
                 <registration.component params={entry.params} />
               ) : (
