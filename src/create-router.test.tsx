@@ -2,14 +2,14 @@ import { act, renderHook } from '@testing-library/react';
 import type React from 'react';
 import { describe, expect, it } from 'vitest';
 import { createRouter } from './create-router.js';
-import { modal, sheet, stack, tab } from './route-helpers.js';
+import { overlay, stack, tab } from './route-helpers.js';
 
 const HomeScreen: React.FC = () => null;
 const SearchScreen: React.FC = () => null;
 const ProfileScreen: React.FC = () => null;
 const DetailScreen: React.FC = () => null;
-const LoginModal: React.FC = () => null;
-const ActionSheet: React.FC = () => null;
+const LoginOverlay: React.FC = () => null;
+const ActionOverlay: React.FC = () => null;
 
 describe('createRouter', () => {
   it('should accept function-based config and return RouterInstance', () => {
@@ -19,8 +19,7 @@ describe('createRouter', () => {
         tab('search', SearchScreen),
         tab('profile', ProfileScreen),
       ],
-      modals: [modal('login', LoginModal)],
-      sheets: [sheet('action-sheet', ActionSheet)],
+      overlays: [overlay('login', LoginOverlay), overlay('action-sheet', ActionOverlay)],
       initialTab: 'home',
     });
 
@@ -28,8 +27,7 @@ describe('createRouter', () => {
     expect(router.useNavigation).toBeDefined();
     expect(router.useRoute).toBeDefined();
     expect(router.useTab).toBeDefined();
-    expect(router.useModal).toBeDefined();
-    expect(router.useSheet).toBeDefined();
+    expect(router.useOverlay).toBeDefined();
   });
 
   it('should pre-populate screen registry from config', () => {
@@ -38,7 +36,7 @@ describe('createRouter', () => {
         tab('home', HomeScreen, [stack('detail/:id', DetailScreen)]),
         tab('search', SearchScreen),
       ],
-      modals: [modal('login', LoginModal)],
+      overlays: [overlay('login', LoginOverlay)],
       initialTab: 'home',
     });
 

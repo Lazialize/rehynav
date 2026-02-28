@@ -1,32 +1,22 @@
 import { useMemo } from 'react';
 import { createId } from '../core/id.js';
 import { getCurrentRouteInfo } from '../core/route-utils.js';
-import type { OverlayEntry, Serializable } from '../core/types.js';
+import type { Serializable } from '../core/types.js';
 import { useGuardRegistry, useNavigationStore } from './context.js';
 import { useNavigationSelector } from './useNavigationSelector.js';
 
-function findLastOverlay(
-  overlays: OverlayEntry[],
-  type: 'modal' | 'sheet',
-): OverlayEntry | undefined {
-  for (let i = overlays.length - 1; i >= 0; i--) {
-    if (overlays[i].type === type) return overlays[i];
-  }
-  return undefined;
-}
-
-export interface ModalActions {
+export interface OverlayActions {
   open(name: string, params?: Record<string, Serializable>): void;
   close(name?: string): void;
   isOpen: boolean;
   current: string | null;
 }
 
-export function useModal(): ModalActions {
+export function useOverlay(): OverlayActions {
   const store = useNavigationStore();
   const guardRegistry = useGuardRegistry();
   const overlays = useNavigationSelector((s) => s.overlays);
-  const currentModal = findLastOverlay(overlays, 'modal');
+  const currentOverlay = overlays.length > 0 ? overlays[overlays.length - 1] : undefined;
 
   return useMemo(
     () => ({
@@ -37,7 +27,6 @@ export function useModal(): ModalActions {
         if (!guardRegistry.check(from, to, 'push')) return;
         store.dispatch({
           type: 'OPEN_OVERLAY',
-          overlayType: 'modal',
           route: name,
           params,
           id: createId(),
@@ -47,9 +36,9 @@ export function useModal(): ModalActions {
       close(name?: string) {
         store.dispatch({ type: 'CLOSE_OVERLAY', route: name });
       },
-      isOpen: currentModal !== undefined,
-      current: currentModal?.route ?? null,
+      isOpen: currentOverlay !== undefined,
+      current: currentOverlay?.route ?? null,
     }),
-    [store, guardRegistry, currentModal],
+    [store, guardRegistry, currentOverlay],
   );
 }

@@ -8,13 +8,13 @@ React navigation library for mobile web and hybrid apps.
 
 ## Why ReHynav?
 
-ReHynav is built for mobile-style navigation patterns—**tab-based apps with independent stacks**, **predictable back behavior**, and **modal flows**—while still running on the web and in hybrid containers like Capacitor or Tauri.
+ReHynav is built for mobile-style navigation patterns—**tab-based apps with independent stacks**, **predictable back behavior**, and **overlay flows**—while still running on the web and in hybrid containers like Capacitor or Tauri.
 
 Many React routers are optimized for "web-first" navigation (URL-driven, single history stack). That's great for classic websites, but mobile-style apps often need:
 
 - **Bottom tabs that keep their own navigation history**
-- **Back behavior that feels native** (modal → stack → exit, matching iOS/Android conventions)
-- **Modal / sheet routes** that behave consistently across web + hybrid
+- **Back behavior that feels native** (overlay → stack → exit, matching iOS/Android conventions)
+- **Overlay routes** that behave consistently across web + hybrid
 - **State persistence** when switching tabs
 - **Hybrid container integration** (designed for Capacitor/Tauri integration)
 
@@ -24,10 +24,10 @@ Many React routers are optimized for "web-first" navigation (URL-driven, single 
   Each tab maintains its own stack history, so switching tabs doesn't destroy navigation context.
 
 - **Native-like Back Behavior**
-  Back prioritizes what users expect on mobile: close modal/sheet → pop stack → exit, matching iOS/Android conventions.
+  Back prioritizes what users expect on mobile: close overlay → pop stack → exit, matching iOS/Android conventions.
 
-- **Modal / Sheet Routes**
-  Present routes as overlays (modal, bottom sheet) without breaking stack flow.
+- **Overlay Routes**
+  Present routes as overlays (modals, bottom sheets, etc.) without breaking stack flow.
 
 - **State Persistence**
   Screens and tab stacks can keep state across tab switches and app lifecycle events.
@@ -52,7 +52,7 @@ yarn add rehynav
 ### 1. Define Routes
 
 ```tsx
-import { createRouter, tab, stack, modal, sheet } from 'rehynav';
+import { createRouter, tab, stack, overlay } from 'rehynav';
 
 const router = createRouter({
   tabs: [
@@ -64,8 +64,7 @@ const router = createRouter({
       stack('settings', SettingsScreen),
     ]),
   ],
-  modals: [modal('new-post', NewPostModal)],
-  sheets: [sheet('share', ShareSheet)],
+  overlays: [overlay('new-post', NewPostModal), overlay('share', ShareSheet)],
   initialTab: 'home',
 });
 
@@ -74,8 +73,7 @@ export const {
   useNavigation,
   useRoute,
   useTab,
-  useModal,
-  useSheet,
+  useOverlay,
   useBeforeNavigate,
   useBackHandler,
 } = router;
@@ -99,18 +97,18 @@ function App() {
 ### 3. Navigate
 
 ```tsx
-import { useNavigation, useModal } from './router';
+import { useNavigation, useOverlay } from './router';
 
 function HomeScreen() {
   const { push, goBack } = useNavigation();
-  const modal = useModal();
+  const overlay = useOverlay();
 
   return (
     <div>
       <button onClick={() => push('post-detail/:postId', { postId: '1' })}>
         View Post
       </button>
-      <button onClick={() => modal.open('new-post')}>
+      <button onClick={() => overlay.open('new-post')}>
         New Post
       </button>
       <button onClick={() => goBack()}>Back</button>
@@ -128,8 +126,7 @@ function HomeScreen() {
 | `useNavigation` | Navigation actions: `push`, `goBack`, `replace`, etc. |
 | `useRoute` | Access current route info and params |
 | `useTab` | Switch tabs and get the active tab |
-| `useModal` | `open` / `close` modals |
-| `useSheet` | `open` / `close` sheets |
+| `useOverlay` | `open` / `close` overlays |
 | `useBeforeNavigate` | Navigation guard before route changes |
 | `useBackHandler` | Custom back button handling |
 

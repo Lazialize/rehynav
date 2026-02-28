@@ -15,14 +15,12 @@ import {
 } from './hooks/context.js';
 import { useBackHandler } from './hooks/useBackHandler.js';
 import { useBeforeNavigate } from './hooks/useBeforeNavigate.js';
-import type { ModalActions } from './hooks/useModal.js';
-import { useModal } from './hooks/useModal.js';
 import type { NavigationActions } from './hooks/useNavigation.js';
 import { useNavigation } from './hooks/useNavigation.js';
+import type { OverlayActions } from './hooks/useOverlay.js';
+import { useOverlay } from './hooks/useOverlay.js';
 import type { RouteInfoResult } from './hooks/useRoute.js';
 import { useRoute } from './hooks/useRoute.js';
-import type { SheetActions } from './hooks/useSheet.js';
-import { useSheet } from './hooks/useSheet.js';
 import type { TabActions } from './hooks/useTab.js';
 import { useTab } from './hooks/useTab.js';
 import type { OverlayDef, TabDef } from './route-helpers.js';
@@ -33,12 +31,10 @@ import type { NavigationProviderProps } from './types/props.js';
 
 export interface RouterConfig<
   TTabs extends TabDef[] = TabDef[],
-  TModals extends OverlayDef[] = [],
-  TSheets extends OverlayDef[] = [],
+  TOverlays extends OverlayDef[] = [],
 > {
   tabs: [...TTabs];
-  modals?: [...TModals];
-  sheets?: [...TSheets];
+  overlays?: [...TOverlays];
   initialTab: TTabs[number]['name'];
 }
 
@@ -47,19 +43,16 @@ export interface RouterInstance {
   useNavigation: () => NavigationActions;
   useRoute: () => RouteInfoResult;
   useTab: () => TabActions;
-  useModal: () => ModalActions;
-  useSheet: () => SheetActions;
+  useOverlay: () => OverlayActions;
   useBeforeNavigate: (
     guard: (from: RouteInfo, to: RouteInfo, direction: NavigationDirection) => boolean,
   ) => void;
   useBackHandler: (handler: () => boolean) => void;
 }
 
-export function createRouter<
-  TTabs extends TabDef[],
-  TModals extends OverlayDef[],
-  TSheets extends OverlayDef[],
->(config: RouterConfig<TTabs, TModals, TSheets>): RouterInstance {
+export function createRouter<TTabs extends TabDef[], TOverlays extends OverlayDef[]>(
+  config: RouterConfig<TTabs, TOverlays>,
+): RouterInstance {
   const { tabNames, registrations, routes } = parseConfig(config);
   const initialTab = config.initialTab as string;
   const routePatterns = routes.length > 0 ? parseRoutePatterns(routes) : undefined;
@@ -147,8 +140,7 @@ export function createRouter<
     useNavigation,
     useRoute,
     useTab,
-    useModal,
-    useSheet,
+    useOverlay,
     useBeforeNavigate,
     useBackHandler,
   };
@@ -157,7 +149,7 @@ export function createRouter<
 // --- Config parser ---
 
 // biome-ignore lint/suspicious/noExplicitAny: accepts any config shape
-function parseConfig(config: RouterConfig<any, any, any>): {
+function parseConfig(config: RouterConfig<any, any>): {
   tabNames: string[];
   registrations: ScreenRegistration[];
   routes: string[];
@@ -182,22 +174,12 @@ function parseConfig(config: RouterConfig<any, any, any>): {
     }
   }
 
-  if (config.modals) {
-    for (const modalDef of config.modals) {
+  if (config.overlays) {
+    for (const overlayDef of config.overlays) {
       registrations.push({
-        route: modalDef.name,
-        component: modalDef.component,
-        options: modalDef.options,
-      });
-    }
-  }
-
-  if (config.sheets) {
-    for (const sheetDef of config.sheets) {
-      registrations.push({
-        route: sheetDef.name,
-        component: sheetDef.component,
-        options: sheetDef.options,
+        route: overlayDef.name,
+        component: overlayDef.component,
+        options: overlayDef.options,
       });
     }
   }

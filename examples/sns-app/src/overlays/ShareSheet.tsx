@@ -1,12 +1,12 @@
 import type { ScreenComponentProps } from 'rehynav';
-import { useSheet } from 'rehynav';
+import { useOverlay } from 'rehynav';
 
 export function ShareSheet({ params }: ScreenComponentProps<{ postId: string; title: string }>) {
-  const sheet = useSheet();
+  const overlay = useOverlay();
 
   const handleShare = (method: string) => {
     alert(`Shared post #${params.postId} via ${method}`);
-    sheet.close();
+    overlay.close();
   };
 
   return (
@@ -28,7 +28,7 @@ export function ShareSheet({ params }: ScreenComponentProps<{ postId: string; ti
           </button>
         </div>
 
-        <button type="button" className="sheet-close" onClick={() => sheet.close()}>
+        <button type="button" className="sheet-close" onClick={() => overlay.close()}>
           Close
         </button>
       </div>

@@ -60,15 +60,7 @@ export function stack<
   return { _tag: 'stack', path, component, options };
 }
 
-export function modal<
-  N extends string,
-  // biome-ignore lint/suspicious/noExplicitAny: generic constraint requires any for ComponentType
-  C extends React.ComponentType<any>,
->(name: N, component: C, options?: ScreenOptions): OverlayDef<N, C> {
-  return { _tag: 'overlay', name, component, options };
-}
-
-export function sheet<
+export function overlay<
   N extends string,
   // biome-ignore lint/suspicious/noExplicitAny: generic constraint requires any for ComponentType
   C extends React.ComponentType<any>,

@@ -10,7 +10,6 @@ export type {
   NavigationDirection,
   NavigationState,
   OverlayEntry,
-  OverlayType,
   RouteInfo,
   StackEntry,
   TabState,
@@ -19,23 +18,21 @@ export type { RouterConfig, RouterInstance } from './create-router.js';
 export { createRouter } from './create-router.js';
 export { useBackHandler } from './hooks/useBackHandler.js';
 export { useBeforeNavigate } from './hooks/useBeforeNavigate.js';
-export type { ModalActions } from './hooks/useModal.js';
-export { useModal } from './hooks/useModal.js';
 export type { NavigationActions } from './hooks/useNavigation.js';
 // Hooks (for advanced global registration usage)
 export { useNavigation } from './hooks/useNavigation.js';
 // Utilities
 export { shallowEqual } from './hooks/useNavigationSelector.js';
+export type { OverlayActions } from './hooks/useOverlay.js';
+export { useOverlay } from './hooks/useOverlay.js';
 export type { RouteInfoResult } from './hooks/useRoute.js';
 export { useRoute } from './hooks/useRoute.js';
-export type { SheetActions } from './hooks/useSheet.js';
-export { useSheet } from './hooks/useSheet.js';
 export type { TabActions } from './hooks/useTab.js';
 export { useTab } from './hooks/useTab.js';
 
 export type { OverlayDef, StackDef, TabDef } from './route-helpers.js';
 // Route helpers
-export { modal, sheet, stack, tab } from './route-helpers.js';
+export { overlay, stack, tab } from './route-helpers.js';
 
 // Sync
 export { HistorySyncManager } from './sync/history-sync.js';

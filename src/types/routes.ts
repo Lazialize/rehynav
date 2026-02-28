@@ -23,16 +23,11 @@ export type InferComponentParams<C> =
       {};
 
 // Infer full RouteMap from definition arrays
-export type InferRouteMap<
-  TTabs extends TabDef[] = [],
-  TModals extends OverlayDef[] = [],
-  TSheets extends OverlayDef[] = [],
-> = {
+export type InferRouteMap<TTabs extends TabDef[] = [], TOverlays extends OverlayDef[] = []> = {
   // biome-ignore lint/complexity/noBannedTypes: empty object represents no params for tabs
   tabs: { [T in TTabs[number] as T['name']]: {} };
   stacks: InferStacksFromTabs<TTabs>;
-  modals: { [D in TModals[number] as D['name']]: InferComponentParams<D['component']> };
-  sheets: { [D in TSheets[number] as D['name']]: InferComponentParams<D['component']> };
+  overlays: { [D in TOverlays[number] as D['name']]: InferComponentParams<D['component']> };
 };
 
 // Infer stacks from tab definitions

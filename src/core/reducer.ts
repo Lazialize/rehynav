@@ -9,7 +9,7 @@ import type {
 } from './types.js';
 
 export function handleBack(state: NavigationState): BackResult {
-  // Step 1: Close topmost overlay (sheet or modal)
+  // Step 1: Close topmost overlay
   if (state.overlays.length > 0) {
     return {
       handled: true,
@@ -196,7 +196,6 @@ export function navigationReducer(
     case 'OPEN_OVERLAY': {
       const newOverlay: OverlayEntry = {
         id: action.id,
-        type: action.overlayType,
         route: action.route,
         params: action.params,
         timestamp: action.timestamp,

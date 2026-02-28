@@ -52,11 +52,8 @@ interface TabState {
 
 // ---- Overlay Layer ----
 
-type OverlayType = 'modal' | 'sheet';
-
 interface OverlayEntry {
   id: string;
-  type: OverlayType;
   route: string;
   params: Record<string, Serializable>;
   timestamp: number;
@@ -71,7 +68,7 @@ interface NavigationState {
   activeTab: string;
   /** Ordered list of tabs (for tab bar rendering) */
   tabOrder: string[];
-  /** Overlay stack (modals and sheets, rendered above tabs) */
+  /** Overlay stack (rendered above tabs) */
   overlays: OverlayEntry[];
   /** Tab badge values */
   badges: Record<string, string | number | undefined>;
@@ -80,9 +77,9 @@ interface NavigationState {
 
 ### 1.2 Design Decisions
 
-**Why a single `overlays` array instead of separate `modals` and `sheets`?**
+**Why a single `overlays` array?**
 
-Modals and sheets share the same behavioral semantics: they appear above the tab content, stack on top of each other, and are dismissed in LIFO order. A unified array preserves the true stacking order. The `type` field differentiates them for rendering purposes (modal = centered overlay, sheet = bottom-anchored). This also means that a sheet can be opened on top of a modal, or vice versa, which is a valid mobile UX pattern.
+All overlays share the same behavioral semantics: they appear above the tab content, stack on top of each other, and are dismissed in LIFO order. A unified array preserves the true stacking order. Presentation style (modal, bottom sheet, etc.) is left to the consuming application's CSS—rehynav's responsibility is navigation state management, not presentation.
 
 **Why `id` on StackEntry and OverlayEntry?**
 
@@ -165,7 +162,7 @@ function resolveTabForRoute(route: string, tabOrder: string[]): string | null {
 }
 ```
 
-Note: With the nested route map, modals and sheets are no longer identified by prefix (`#`, `$`). The route category is determined by which section of the route map the route belongs to. `resolveTabForRoute` is only called for tab and stack routes.
+Note: Overlays are not identified by prefix. The route category is determined by which section of the config the route belongs to. `resolveTabForRoute` is only called for tab and stack routes.
 
 ### 1.4 Initial State Factory
 
@@ -225,7 +222,7 @@ Note: `createId` and `now` are injected parameters (not called directly), making
 
 **Why not Context + useReducer:**
 
-Context causes all consumers to re-render on every state change. For navigation, this means every `useRoute()`, `useTab()`, `useModal()`, and `useSheet()` hook would re-render on every navigation action, even if the specific slice they care about didn't change. React.memo and useMemo can mitigate but add complexity and are error-prone.
+Context causes all consumers to re-render on every state change. For navigation, this means every `useRoute()`, `useTab()`, and `useOverlay()` hook would re-render on every navigation action, even if the specific slice they care about didn't change. React.memo and useMemo can mitigate but add complexity and are error-prone.
 
 **Why not Zustand:**
 
@@ -397,7 +394,7 @@ When the user triggers a "back" action (browser back button, swipe gesture, Andr
 
 ```
 1. useBeforeNavigate guards (user-defined, can prevent navigation)
-2. Close topmost overlay (sheet or modal, regardless of type)
+2. Close topmost overlay
 3. Pop active tab's stack (if stack depth > 1)
 4. Switch to previous tab (if tab history exists) [optional/future]
 5. No-op / exit signal (at the root of the initial tab)
@@ -452,7 +449,7 @@ interface BackResult {
 }
 
 function handleBack(state: NavigationState): BackResult {
-  // Step 1: Close topmost overlay (sheet or modal)
+  // Step 1: Close topmost overlay
   if (state.overlays.length > 0) {
     return {
       handled: true,
@@ -705,7 +702,7 @@ function stateToUrl(state: NavigationState, basePath: string = '/'): string {
 
 **Why not encode overlays in the URL?**
 
-Overlays (modals/sheets) are ephemeral UI states, not addressable locations. Including them in the URL would create confusing shareable links (e.g., a shared link that opens with a confirmation modal). They are tracked in History API state entries for back button support, but the URL only shows the underlying screen.
+Overlays are ephemeral UI states, not addressable locations. Including them in the URL would create confusing shareable links (e.g., a shared link that opens with a confirmation dialog). They are tracked in History API state entries for back button support, but the URL only shows the underlying screen.
 
 ### 4.2 URL-to-State Restoration (Deep Links)
 
@@ -929,11 +926,8 @@ function OverlayRenderer() {
         return (
           <div
             key={overlay.id}
-            data-overlay-type={overlay.type}
-            data-route-type={overlay.type}
-            className={
-              overlay.type === 'modal' ? 'rehynav-modal' : 'rehynav-sheet'
-            }
+            data-route-type="overlay"
+            className="rehynav-overlay"
           >
             <Component params={overlay.params} />
           </div>
@@ -1131,15 +1125,14 @@ src/
     Screen.tsx                 # Route-to-component registration
     Link.tsx                   # Type-safe navigation link
     StackRenderer.tsx          # Renders stack entries within a tab
-    OverlayRenderer.tsx        # Renders modals and sheets
+    OverlayRenderer.tsx        # Renders overlays
     UnregisteredScreenError.tsx # Dev-mode error display
 
   hooks/                      # React hooks (public API)
     useNavigation.ts           # push, pop, goBack, etc.
     useRoute.ts                # Current route info (auto-inferred in Screen context)
     useTab.ts                  # Tab actions
-    useModal.ts                # Modal actions
-    useSheet.ts                # Sheet actions
+    useOverlay.ts              # Overlay actions
     useBeforeNavigate.ts       # Navigation guard (all directions)
     useBackHandler.ts          # Convenience alias (back only)
     useNavigationSelector.ts   # Internal: selector-based subscription
@@ -1150,7 +1143,7 @@ src/
   types/                       # Public type definitions
     register.ts                # Register interface, RegisteredRouteMap
     props.ts                   # Component prop types
-    routes.ts                  # TabRoutes, StackRoutes, ModalRoutes, SheetRoutes, AllRoutes
+    routes.ts                  # Route type inference utilities
     serializable.ts            # Serializable type constraint
 ```
 
@@ -1211,8 +1204,7 @@ export { Link } from './components/Link';
 export { useNavigation } from './hooks/useNavigation';
 export { useRoute } from './hooks/useRoute';
 export { useTab } from './hooks/useTab';
-export { useModal } from './hooks/useModal';
-export { useSheet } from './hooks/useSheet';
+export { useOverlay } from './hooks/useOverlay';
 export { useBeforeNavigate } from './hooks/useBeforeNavigate';
 export { useBackHandler } from './hooks/useBackHandler';
 

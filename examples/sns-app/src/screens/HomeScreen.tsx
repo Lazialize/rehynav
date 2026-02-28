@@ -1,15 +1,15 @@
-import { Link, useModal } from 'rehynav';
+import { Link, useOverlay } from 'rehynav';
 import { posts } from '../data';
 
 export function HomeScreen() {
-  // useModal — open overlays imperatively
-  const modal = useModal();
+  // useOverlay — open overlays imperatively
+  const overlay = useOverlay();
 
   return (
     <div className="screen">
       <header className="screen-header">
         <h1>Home</h1>
-        <button type="button" className="fab" onClick={() => modal.open('new-post')}>
+        <button type="button" className="fab" onClick={() => overlay.open('new-post')}>
           + New Post
         </button>
       </header>

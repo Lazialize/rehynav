@@ -1,8 +1,8 @@
 import { useCallback, useState } from 'react';
-import { useBeforeNavigate, useModal } from 'rehynav';
+import { useBeforeNavigate, useOverlay } from 'rehynav';
 
 export function NewPostModal() {
-  const modal = useModal();
+  const overlay = useOverlay();
   const [text, setText] = useState('');
 
   // useBeforeNavigate — prevent navigation when there are unsaved changes.
@@ -22,14 +22,14 @@ export function NewPostModal() {
   const handleSubmit = () => {
     alert(`Post created: "${text}"`);
     setText('');
-    modal.close();
+    overlay.close();
   };
 
   return (
     <div className="modal-backdrop">
       <div className="modal-content">
         <header className="screen-header">
-          <button type="button" onClick={() => modal.close()}>
+          <button type="button" onClick={() => overlay.close()}>
             Cancel
           </button>
           <h1>New Post</h1>

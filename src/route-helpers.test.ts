@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { modal, sheet, stack, tab } from './route-helpers.js';
+import { overlay, stack, tab } from './route-helpers.js';
 
 const DummyComponent: React.FC = () => null;
 
@@ -33,18 +33,15 @@ describe('stack', () => {
   });
 });
 
-describe('modal', () => {
+describe('overlay', () => {
   it('creates an overlay definition', () => {
-    const def = modal('login', DummyComponent);
+    const def = overlay('login', DummyComponent);
     expect(def._tag).toBe('overlay');
     expect(def.name).toBe('login');
   });
-});
 
-describe('sheet', () => {
-  it('creates an overlay definition', () => {
-    const def = sheet('share', DummyComponent);
-    expect(def._tag).toBe('overlay');
-    expect(def.name).toBe('share');
+  it('accepts options', () => {
+    const def = overlay('share', DummyComponent, { transition: 'fade' });
+    expect(def.options?.transition).toBe('fade');
   });
 });

@@ -329,7 +329,6 @@ describe('HistorySyncManager', () => {
       // Open overlay
       store.dispatch({
         type: 'OPEN_OVERLAY',
-        overlayType: 'modal',
         route: 'login',
         params: {},
         id: createId(),
@@ -349,7 +348,6 @@ describe('HistorySyncManager', () => {
     it('should return top overlay when overlays exist', () => {
       store.dispatch({
         type: 'OPEN_OVERLAY',
-        overlayType: 'modal',
         route: 'settings',
         params: {},
         id: createId(),
@@ -388,7 +386,6 @@ describe('HistorySyncManager', () => {
 
       store.dispatch({
         type: 'OPEN_OVERLAY',
-        overlayType: 'sheet',
         route: 'details-sheet',
         params: {},
         id: createId(),
@@ -410,7 +407,6 @@ describe('HistorySyncManager', () => {
       // Open an overlay
       store.dispatch({
         type: 'OPEN_OVERLAY',
-        overlayType: 'sheet',
         route: 'details-sheet',
         params: {},
         id: createId(),
@@ -433,7 +429,6 @@ describe('HistorySyncManager', () => {
       // Open two overlays
       store.dispatch({
         type: 'OPEN_OVERLAY',
-        overlayType: 'sheet',
         route: 'sheet-1',
         params: {},
         id: createId(),
@@ -441,7 +436,6 @@ describe('HistorySyncManager', () => {
       });
       store.dispatch({
         type: 'OPEN_OVERLAY',
-        overlayType: 'modal',
         route: 'modal-1',
         params: {},
         id: createId(),

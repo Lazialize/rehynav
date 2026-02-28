@@ -35,11 +35,8 @@ export interface TabState {
 
 // ---- Overlay Layer ----
 
-export type OverlayType = 'modal' | 'sheet';
-
 export interface OverlayEntry {
   id: string;
-  type: OverlayType;
   route: string;
   params: Record<string, Serializable>;
   timestamp: number;
@@ -54,7 +51,7 @@ export interface NavigationState {
   activeTab: string;
   /** Ordered list of tabs (for tab bar rendering) */
   tabOrder: string[];
-  /** Overlay stack (modals and sheets, rendered above tabs) */
+  /** Overlay stack (rendered above tabs) */
   overlays: OverlayEntry[];
   /** Tab badge values */
   badges: Record<string, string | number | undefined>;
@@ -83,7 +80,6 @@ export type NavigationAction =
   | { type: 'SWITCH_TAB_AND_RESET'; tab: string }
   | {
       type: 'OPEN_OVERLAY';
-      overlayType: OverlayType;
       route: string;
       params: Record<string, Serializable>;
       id: string;

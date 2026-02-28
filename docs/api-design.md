@@ -64,7 +64,7 @@
 2. **Type Safety by Default** - TypeScript generics for end-to-end type safety with zero extra config. No `declare module` required for the recommended path.
 3. **Mobile-First, Web-Compatible** - Independent tab stacks, native-like back behavior, and URL sync built in.
 4. **Declarative JSX** - Route structure defined in JSX, not config objects. React developers feel at home.
-5. **Progressive Disclosure** - Simple use cases are simple. Advanced features (modals, sheets, guards) are opt-in.
+5. **Progressive Disclosure** - Simple use cases are simple. Advanced features (overlays, guards) are opt-in.
 6. **Serializable State** - All navigation state (including route params) must be serializable. No functions, class instances, or other non-serializable values in params.
 
 ---
@@ -73,7 +73,7 @@
 
 ### 3.1 Route Map Type Definition
 
-The route map is a **nested TypeScript type** that defines all routes organized by category. This is the single source of truth for type safety. Each category (`tabs`, `stacks`, `modals`, `sheets`) explicitly declares the type of navigation each route uses.
+The route map is a **nested TypeScript type** that defines all routes organized by category. This is the single source of truth for type safety. Each category (`tabs`, `stacks`, `overlays`) explicitly declares the type of navigation each route uses.
 
 ```typescript
 // Serializable constraint for route params
@@ -100,16 +100,11 @@ type AppRoutes = {
     "profile/edit": {};
   };
 
-  // Modal routes (overlay, centered)
-  modals: {
+  // Overlay routes (rendered above tabs)
+  overlays: {
     login: {};
     confirm: { title: string; message: string; action: string };
-  };
-
-  // Sheet routes (overlay, bottom-anchored)
-  sheets: {
     share: { url: string };
-    picker: { options: string[] };
   };
 };
 ```
@@ -117,10 +112,9 @@ type AppRoutes = {
 **Convention:**
 - `tabs`: Top-level tab root screens. Each key becomes a tab.
 - `stacks`: Screens pushable within a tab's stack. Keys must start with a tab name followed by `/` (e.g., `"home/detail"` belongs to the `home` tab). This is enforced at both the type level and runtime.
-- `modals`: Overlay screens rendered centered above content.
-- `sheets`: Overlay screens rendered anchored to the bottom (bottom sheets).
+- `overlays`: Overlay screens rendered above content. Presentation style (modal, bottom sheet, etc.) is determined by the consumer's CSS.
 - Route params must conform to the `Serializable` type. Functions, class instances, and other non-serializable values will cause a compile error.
-- Empty categories can be omitted. An app with no sheets simply omits the `sheets` key.
+- Empty categories can be omitted. An app with no overlays simply omits the `overlays` key.
 
 ### 3.2 Router Creation
 
@@ -144,8 +138,7 @@ const {
   useNavigation,
   useRoute,
   useTab,
-  useModal,
-  useSheet,
+  useOverlay,
   useBeforeNavigate,
   useBackHandler,
 } = router;
@@ -287,7 +280,7 @@ Increase maxStackDepth if this is intentional.
 
 ### 4.3 `<Screen>`
 
-Registers a screen component for a route. Placed inside `<NavigationProvider>`. The route's category (tab, stack, modal, sheet) is automatically inferred from the route map — no `type` prop is needed.
+Registers a screen component for a route. Placed inside `<NavigationProvider>`. The route's category (tab, stack, overlay) is automatically inferred from the route map — no `type` prop is needed.
 
 ```typescript
 interface ScreenProps<RouteName extends AllRoutes> {
@@ -357,10 +350,10 @@ Additionally, after `NavigationProvider` mounts, rehynav checks that all routes 
 
 ### 4.4 `<Link>`
 
-Type-safe navigation link component. Renders an `<a>` tag for web semantics. **Only accepts tab and stack routes** — modal and sheet routes cannot be used with `Link` (use `useModal().open()` or `useSheet().open()` instead).
+Type-safe navigation link component. Renders an `<a>` tag for web semantics. **Only accepts tab and stack routes** — overlay routes cannot be used with `Link` (use `useOverlay().open()` instead).
 
 ```typescript
-// LinkableRoutes excludes modals and sheets
+// LinkableRoutes excludes overlays
 type LinkableRoutes = TabRoutes | StackRoutes;
 
 // For routes with no params
@@ -405,8 +398,8 @@ type LinkProps<RouteName extends LinkableRoutes> =
   Search React
 </Link>
 
-{/* Modal routes cause a compile error */}
-{/* <Link to="login">Login</Link>  ← Type error! Use useModal().open("login") */}
+{/* Overlay routes cause a compile error */}
+{/* <Link to="login">Login</Link>  ← Type error! Use useOverlay().open("login") */}
 ```
 
 **When to use Link vs useNavigation:**
@@ -445,7 +438,7 @@ interface NavigationActions {
       : [to: RouteName, params: RouteParams<RouteName>]
   ): void;
 
-  // Go back (smart: pops stack, closes modal/sheet, or switches tab)
+  // Go back (smart: pops stack, closes overlay, or switches tab)
   goBack(): void;
 
   // Check if we can go back
@@ -566,40 +559,40 @@ function SomeScreen() {
 }
 ```
 
-### 5.4 `useModal()`
+### 5.4 `useOverlay()`
 
-Hook for opening and controlling modal routes.
+Hook for opening and controlling overlay routes.
 
 ```typescript
-interface ModalActions {
-  // Open a modal route
-  open<RouteName extends ModalRoutes>(
+interface OverlayActions {
+  // Open an overlay route
+  open<RouteName extends OverlayRoutes>(
     ...args: RequiredKeys<RouteParams<RouteName>> extends never
       ? [name: RouteName, params?: RouteParams<RouteName>]
       : [name: RouteName, params: RouteParams<RouteName>]
   ): void;
 
-  // Close the current modal (or a specific one)
-  close(name?: ModalRoutes): void;
+  // Close the current overlay (or a specific one)
+  close(name?: OverlayRoutes): void;
 
-  // Whether a modal is currently open
+  // Whether an overlay is currently open
   isOpen: boolean;
 
-  // Name of the currently open modal (if any)
-  current: ModalRoutes | null;
+  // Name of the currently open overlay (if any)
+  current: OverlayRoutes | null;
 }
 
-// ModalRoutes is derived from the route map's modals category
-type ModalRoutes = keyof RegisteredRouteMap['modals'];
+// OverlayRoutes is derived from the route map's overlays category
+type OverlayRoutes = keyof RegisteredRouteMap['overlays'];
 ```
 
 **Usage:**
 ```tsx
 function ProfileScreen() {
-  const modal = useModal();
+  const overlay = useOverlay();
 
   return (
-    <button onClick={() => modal.open("confirm", {
+    <button onClick={() => overlay.open("confirm", {
       title: "Delete?",
       message: "This cannot be undone.",
       action: "delete-account",
@@ -610,34 +603,7 @@ function ProfileScreen() {
 }
 ```
 
-### 5.5 `useSheet()`
-
-Hook for opening and controlling sheet (bottom sheet) routes.
-
-```typescript
-interface SheetActions {
-  // Open a sheet route
-  open<RouteName extends SheetRoutes>(
-    ...args: RequiredKeys<RouteParams<RouteName>> extends never
-      ? [name: RouteName, params?: RouteParams<RouteName>]
-      : [name: RouteName, params: RouteParams<RouteName>]
-  ): void;
-
-  // Close the current sheet
-  close(name?: SheetRoutes): void;
-
-  // Whether a sheet is currently open
-  isOpen: boolean;
-
-  // Current sheet name
-  current: SheetRoutes | null;
-}
-
-// SheetRoutes is derived from the route map's sheets category
-type SheetRoutes = keyof RegisteredRouteMap['sheets'];
-```
-
-### 5.6 `useBeforeNavigate()`
+### 5.5 `useBeforeNavigate()`
 
 Hook for intercepting any navigation action. This is the primary navigation guard mechanism.
 
@@ -701,11 +667,11 @@ function useBackHandler(handler: () => boolean): void {
 ```tsx
 function FormScreen() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const modal = useModal();
+  const overlay = useOverlay();
 
   useBackHandler(() => {
     if (hasUnsavedChanges) {
-      modal.open("confirm", {
+      overlay.open("confirm", {
         title: "Discard changes?",
         message: "You have unsaved changes.",
         action: "discard-form",
@@ -728,8 +694,7 @@ function FormScreen() {
 interface RouteMap {
   tabs: Record<string, Serializable>;
   stacks?: Record<string, Serializable>;
-  modals?: Record<string, Serializable>;
-  sheets?: Record<string, Serializable>;
+  overlays?: Record<string, Serializable>;
 }
 
 // Serializable constraint for all route params
@@ -750,21 +715,19 @@ type RequiredKeys<T> = {
 // Route categories derived from route map structure
 type TabRoutes = keyof RegisteredRouteMap['tabs'];
 type StackRoutes = keyof RegisteredRouteMap['stacks'];
-type ModalRoutes = keyof RegisteredRouteMap['modals'];
-type SheetRoutes = keyof RegisteredRouteMap['sheets'];
+type OverlayRoutes = keyof RegisteredRouteMap['overlays'];
 
 // All route names (union of all categories)
-type AllRoutes = TabRoutes | StackRoutes | ModalRoutes | SheetRoutes;
+type AllRoutes = TabRoutes | StackRoutes | OverlayRoutes;
 
-// Linkable routes (only tabs and stacks — modals/sheets excluded)
+// Linkable routes (only tabs and stacks — overlays excluded)
 type LinkableRoutes = TabRoutes | StackRoutes;
 
 // Route params accessor (resolves params from the nested route map)
 type RouteParams<RouteName extends AllRoutes> =
   RouteName extends TabRoutes ? RegisteredRouteMap['tabs'][RouteName] :
   RouteName extends StackRoutes ? RegisteredRouteMap['stacks'][RouteName] :
-  RouteName extends ModalRoutes ? RegisteredRouteMap['modals'][RouteName] :
-  RouteName extends SheetRoutes ? RegisteredRouteMap['sheets'][RouteName] :
+  RouteName extends OverlayRoutes ? RegisteredRouteMap['overlays'][RouteName] :
   never;
 
 // Stack route key validation: must start with a tab name
@@ -879,7 +842,7 @@ function DetailScreen({ params }: { params: { itemId: string } }) {
 }
 ```
 
-### 7.3 Modal with Action Pattern
+### 7.3 Overlay with Action Pattern
 
 ```tsx
 type AppRoutes = {
@@ -888,7 +851,7 @@ type AppRoutes = {
     profile: {};
     search: {};
   };
-  modals: {
+  overlays: {
     login: {};
     confirm: { title: string; message: string; action: string };
   };
@@ -899,13 +862,13 @@ const router = createRouter<AppRoutes>({
   initialTab: "home",
 });
 
-const { NavigationProvider, Screen, TabNavigator, useModal } = router;
+const { NavigationProvider, Screen, TabNavigator, useOverlay } = router;
 
 function ProfileScreen() {
-  const modal = useModal();
+  const overlay = useOverlay();
 
   const handleDeleteAccount = () => {
-    modal.open("confirm", {
+    overlay.open("confirm", {
       title: "Delete Account",
       message: "Are you sure? This action cannot be undone.",
       action: "delete-account",
@@ -920,8 +883,8 @@ function ProfileScreen() {
   );
 }
 
-function ConfirmModal({ params }: { params: { title: string; message: string; action: string } }) {
-  const modal = useModal();
+function ConfirmOverlay({ params }: { params: { title: string; message: string; action: string } }) {
+  const overlay = useOverlay();
 
   const handleConfirm = () => {
     switch (params.action) {
@@ -932,15 +895,15 @@ function ConfirmModal({ params }: { params: { title: string; message: string; ac
         // Call your delete post API
         break;
     }
-    modal.close();
+    overlay.close();
   };
 
   return (
-    <div className="modal-overlay">
-      <div className="modal-content">
+    <div className="overlay-backdrop">
+      <div className="overlay-content">
         <h2>{params.title}</h2>
         <p>{params.message}</p>
-        <button onClick={() => modal.close()}>Cancel</button>
+        <button onClick={() => overlay.close()}>Cancel</button>
         <button onClick={handleConfirm}>Confirm</button>
       </div>
     </div>
@@ -999,10 +962,8 @@ type AppRoutes = {
     "home/detail": { itemId: string };
     "profile/settings": {};
   };
-  modals: {
+  overlays: {
     login: {};
-  };
-  sheets: {
     share: { url: string };
   };
 };
@@ -1017,8 +978,7 @@ const {
   Screen,
   TabNavigator,
   useNavigation,
-  useModal,
-  useSheet,
+  useOverlay,
   useTab,
   useRoute,
   useBeforeNavigate,
@@ -1037,11 +997,9 @@ function App() {
       <Screen name="home/detail" component={DetailScreen} />
       <Screen name="profile/settings" component={SettingsScreen} />
 
-      {/* Modals */}
-      <Screen name="login" component={LoginModal} />
-
-      {/* Sheets */}
-      <Screen name="share" component={ShareSheet} />
+      {/* Overlays */}
+      <Screen name="login" component={LoginOverlay} />
+      <Screen name="share" component={ShareOverlay} />
 
       <TabNavigator />
     </NavigationProvider>
@@ -1064,8 +1022,7 @@ function App() {
 | `useNavigation()` | `push`, `pop`, `popToRoot`, `replace`, `goBack`, `canGoBack` |
 | `useRoute()` | Current route name, params, path (auto-inferred in Screen) |
 | `useTab()` | `activeTab`, `switchTab`, `setBadge`, `tabs` |
-| `useModal()` | `open`, `close`, `isOpen`, `current` |
-| `useSheet()` | `open`, `close`, `isOpen`, `current` |
+| `useOverlay()` | `open`, `close`, `isOpen`, `current` |
 | `useBeforeNavigate()` | Intercept any navigation (navigation guard) |
 | `useBackHandler()` | Convenience alias: intercept back navigation only |
 
@@ -1095,13 +1052,13 @@ function App() {
 
 ### Why nested route map instead of prefix conventions?
 
-**Previous design** used prefix conventions (`#` for modals, `$` for sheets, `/` for stacks) in a flat route map. This was replaced with a nested structure (`tabs`, `stacks`, `modals`, `sheets`) for the following reasons:
+**Previous design** used prefix conventions (`#` for modals, `$` for sheets, `/` for stacks) in a flat route map. This was replaced with a nested structure (`tabs`, `stacks`, `overlays`) for the following reasons:
 
 1. **Clarity:** The nested structure is self-documenting. A new developer reading the route map immediately understands the navigation structure without learning prefix conventions.
 2. **No symbol conflicts:** `#` conflicts with URL fragments and TypeScript private fields. `$` is associated with jQuery and template literals. Nested keys avoid all such associations.
-3. **IDE support:** Typing `modals.` in an IDE shows only modal routes. The flat prefix approach required memorizing symbols.
+3. **IDE support:** Typing `overlays.` in an IDE shows only overlay routes. The flat prefix approach required memorizing symbols.
 4. **Extensibility:** Adding a new overlay category (e.g., `drawers`) requires only adding a new key to the route map. Prefix conventions would require inventing new symbols.
-5. **Type extraction:** `keyof RouteMap['modals']` is simpler than `Extract<keyof RouteMap, '#${string}'>`.
+5. **Type extraction:** `keyof RouteMap['overlays']` is simpler than `Extract<keyof RouteMap, '#${string}'>`.
 
 The one `Screen` component still handles all route types, and the category is auto-inferred from the route map.
 
@@ -1133,7 +1090,7 @@ Navigation state must be fully serializable for:
 
 Functions, class instances, Dates, and other non-serializable values would break these features. The `Serializable` type constraint catches violations at compile time rather than at runtime.
 
-For patterns that need callbacks (e.g., confirmation modals), use the **action string pattern**: pass an action identifier as a serializable param, and resolve the actual callback on the receiving end. See Section 7.3 for an example.
+For patterns that need callbacks (e.g., confirmation overlays), use the **action string pattern**: pass an action identifier as a serializable param, and resolve the actual callback on the receiving end. See Section 7.3 for an example.
 
 ### Why `useBeforeNavigate` subsumes `useBackHandler`?
 

@@ -1,5 +1,5 @@
 import type { TabBarProps } from 'rehynav';
-import { createRouter, modal, sheet, stack, TabNavigator, tab } from 'rehynav';
+import { createRouter, overlay, stack, TabNavigator, tab } from 'rehynav';
 import './App.css';
 
 import { NewPostModal } from './overlays/NewPostModal';
@@ -18,8 +18,7 @@ const router = createRouter({
     tab('search', SearchScreen, [postDetail]),
     tab('profile', ProfileScreen, [stack('settings', SettingsScreen)]),
   ],
-  modals: [modal('new-post', NewPostModal)],
-  sheets: [sheet('share', ShareSheet)],
+  overlays: [overlay('new-post', NewPostModal), overlay('share', ShareSheet)],
   initialTab: 'home',
 });
 
@@ -28,8 +27,7 @@ export const {
   useNavigation,
   useRoute,
   useTab,
-  useModal,
-  useSheet,
+  useOverlay,
   useBeforeNavigate,
   useBackHandler,
 } = router;

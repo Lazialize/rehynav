@@ -228,7 +228,6 @@ describe('useNavigation', () => {
     act(() => {
       store.dispatch({
         type: 'OPEN_OVERLAY',
-        overlayType: 'modal',
         route: 'settings',
         params: {},
         id: 'overlay-1',

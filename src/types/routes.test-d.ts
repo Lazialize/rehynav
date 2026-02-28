@@ -38,27 +38,29 @@ describe('InferComponentParams', () => {
 });
 
 describe('InferRouteMap', () => {
-  it('infers tabs, stacks, modals, sheets from definitions', () => {
-    type ShareSheetComponent = React.FC<ScreenComponentProps<{ postId: string; title: string }>>;
+  it('infers tabs, stacks, and overlays from definitions', () => {
+    type ShareComponent = React.FC<ScreenComponentProps<{ postId: string; title: string }>>;
     type NoParamsComponent = React.FC;
 
     type Tabs = [
       TabDef<'home', NoParamsComponent, [StackDef<'post-detail/:postId', NoParamsComponent>]>,
       TabDef<'search', NoParamsComponent, []>,
     ];
-    type Modals = [OverlayDef<'new-post', NoParamsComponent>];
-    type Sheets = [OverlayDef<'share', ShareSheetComponent>];
+    type Overlays = [
+      OverlayDef<'new-post', NoParamsComponent>,
+      OverlayDef<'share', ShareComponent>,
+    ];
 
-    type Result = InferRouteMap<Tabs, Modals, Sheets>;
+    type Result = InferRouteMap<Tabs, Overlays>;
 
     // Tab names
     assertType<'home' | 'search'>({} as keyof Result['tabs']);
     // Stack routes with params
     assertType<{ postId: string }>({} as Result['stacks']['home/post-detail/:postId']);
-    // Modal (no params)
+    // Overlays
     // biome-ignore lint/complexity/noBannedTypes: testing empty params inference
-    assertType<{}>({} as Result['modals']['new-post']);
-    // Sheet with params inferred from component
-    assertType<{ postId: string; title: string }>({} as Result['sheets']['share']);
+    assertType<{}>({} as Result['overlays']['new-post']);
+    // Overlay with params inferred from component
+    assertType<{ postId: string; title: string }>({} as Result['overlays']['share']);
   });
 });

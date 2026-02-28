@@ -1,11 +1,11 @@
 import type { ScreenComponentProps } from 'rehynav';
-import { useNavigation, useSheet } from 'rehynav';
+import { useNavigation, useOverlay } from 'rehynav';
 import { getPost } from '../data';
 
 // ScreenComponentProps gives you typed `params` based on route definition
 export function PostDetailScreen({ params }: ScreenComponentProps<{ postId: string }>) {
   const navigation = useNavigation();
-  const sheet = useSheet();
+  const overlay = useOverlay();
   const post = getPost(params.postId);
 
   if (!post) {
@@ -29,11 +29,11 @@ export function PostDetailScreen({ params }: ScreenComponentProps<{ postId: stri
           {post.likes} likes · {post.timestamp}
         </div>
 
-        {/* useSheet — open a bottom sheet overlay */}
+        {/* useOverlay — open an overlay */}
         <button
           type="button"
           className="share-button"
-          onClick={() => sheet.open('share', { postId: post.id, title: post.content })}
+          onClick={() => overlay.open('share', { postId: post.id, title: post.content })}
         >
           Share
         </button>

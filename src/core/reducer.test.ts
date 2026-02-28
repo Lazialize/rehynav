@@ -220,7 +220,6 @@ describe('navigationReducer', () => {
       let state = makeState();
       state = dispatch(state, {
         type: 'OPEN_OVERLAY',
-        overlayType: 'sheet',
         route: 'share',
         params: {},
         id: 'overlay-1',
@@ -237,7 +236,6 @@ describe('navigationReducer', () => {
       let state = makeState();
       state = dispatch(state, {
         type: 'OPEN_OVERLAY',
-        overlayType: 'modal',
         route: 'login',
         params: {},
         id: 'overlay-1',
@@ -290,7 +288,6 @@ describe('navigationReducer', () => {
       let state = makeState();
       state = dispatch(state, {
         type: 'OPEN_OVERLAY',
-        overlayType: 'sheet',
         route: 'share',
         params: {},
         id: 'overlay-1',
@@ -306,7 +303,6 @@ describe('navigationReducer', () => {
       let state = makeState();
       state = dispatch(state, {
         type: 'OPEN_OVERLAY',
-        overlayType: 'modal',
         route: 'login',
         params: {},
         id: 'overlay-1',
@@ -326,11 +322,10 @@ describe('navigationReducer', () => {
   });
 
   describe('OPEN_OVERLAY', () => {
-    it('opens a modal overlay', () => {
+    it('opens an overlay', () => {
       const state = makeState();
       const next = dispatch(state, {
         type: 'OPEN_OVERLAY',
-        overlayType: 'modal',
         route: 'login',
         params: {},
         id: 'overlay-1',
@@ -340,18 +335,16 @@ describe('navigationReducer', () => {
       expect(next.overlays).toHaveLength(1);
       expect(next.overlays[0]).toEqual({
         id: 'overlay-1',
-        type: 'modal',
         route: 'login',
         params: {},
         timestamp: 2000,
       });
     });
 
-    it('opens a sheet overlay', () => {
+    it('opens an overlay with params', () => {
       const state = makeState();
       const next = dispatch(state, {
         type: 'OPEN_OVERLAY',
-        overlayType: 'sheet',
         route: 'share',
         params: { url: 'https://example.com' },
         id: 'overlay-1',
@@ -359,14 +352,14 @@ describe('navigationReducer', () => {
       });
 
       expect(next.overlays).toHaveLength(1);
-      expect(next.overlays[0].type).toBe('sheet');
+      expect(next.overlays[0].route).toBe('share');
+      expect(next.overlays[0].params).toEqual({ url: 'https://example.com' });
     });
 
     it('stacks overlays on top of each other', () => {
       let state = makeState();
       state = dispatch(state, {
         type: 'OPEN_OVERLAY',
-        overlayType: 'modal',
         route: 'login',
         params: {},
         id: 'overlay-1',
@@ -374,7 +367,6 @@ describe('navigationReducer', () => {
       });
       state = dispatch(state, {
         type: 'OPEN_OVERLAY',
-        overlayType: 'sheet',
         route: 'share',
         params: {},
         id: 'overlay-2',
@@ -392,7 +384,6 @@ describe('navigationReducer', () => {
       let state = makeState();
       state = dispatch(state, {
         type: 'OPEN_OVERLAY',
-        overlayType: 'modal',
         route: 'login',
         params: {},
         id: 'overlay-1',
@@ -400,7 +391,6 @@ describe('navigationReducer', () => {
       });
       state = dispatch(state, {
         type: 'OPEN_OVERLAY',
-        overlayType: 'sheet',
         route: 'share',
         params: {},
         id: 'overlay-2',
@@ -416,7 +406,6 @@ describe('navigationReducer', () => {
       let state = makeState();
       state = dispatch(state, {
         type: 'OPEN_OVERLAY',
-        overlayType: 'modal',
         route: 'login',
         params: {},
         id: 'overlay-1',
@@ -424,7 +413,6 @@ describe('navigationReducer', () => {
       });
       state = dispatch(state, {
         type: 'OPEN_OVERLAY',
-        overlayType: 'sheet',
         route: 'share',
         params: {},
         id: 'overlay-2',
@@ -446,7 +434,6 @@ describe('navigationReducer', () => {
       let state = makeState();
       state = dispatch(state, {
         type: 'OPEN_OVERLAY',
-        overlayType: 'modal',
         route: 'login',
         params: {},
         id: 'overlay-1',
@@ -463,7 +450,6 @@ describe('navigationReducer', () => {
       let state = makeState();
       state = dispatch(state, {
         type: 'OPEN_OVERLAY',
-        overlayType: 'modal',
         route: 'login',
         params: {},
         id: 'overlay-1',
@@ -508,7 +494,6 @@ describe('navigationReducer', () => {
       // Open an overlay
       state = dispatch(state, {
         type: 'OPEN_OVERLAY',
-        overlayType: 'modal',
         route: 'login',
         params: {},
         id: 'overlay-1',
@@ -576,7 +561,6 @@ describe('navigationReducer', () => {
       let state = makeState();
       state = dispatch(state, {
         type: 'OPEN_OVERLAY',
-        overlayType: 'modal',
         route: 'login',
         params: {},
         id: 'overlay-1',
@@ -584,7 +568,6 @@ describe('navigationReducer', () => {
       });
       state = dispatch(state, {
         type: 'OPEN_OVERLAY',
-        overlayType: 'sheet',
         route: 'share',
         params: {},
         id: 'overlay-2',
@@ -603,7 +586,6 @@ describe('navigationReducer', () => {
 
       state = dispatch(state, {
         type: 'OPEN_OVERLAY',
-        overlayType: 'modal',
         route: 'login',
         params: {},
         id: 'overlay-1',
@@ -703,7 +685,6 @@ describe('handleBack', () => {
     let state = makeState();
     state = dispatch(state, {
       type: 'OPEN_OVERLAY',
-      overlayType: 'modal',
       route: 'login',
       params: {},
       id: 'overlay-1',

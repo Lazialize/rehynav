@@ -10,15 +10,9 @@ export function OverlayRenderer(): React.ReactElement {
     <>
       {overlays.map((overlay) => {
         const registration = registry.get(overlay.route);
-        const className = overlay.type === 'modal' ? 'rehynav-modal' : 'rehynav-sheet';
 
         return (
-          <div
-            key={overlay.id}
-            data-overlay-type={overlay.type}
-            data-route-type="overlay"
-            className={className}
-          >
+          <div key={overlay.id} data-route-type="overlay" className="rehynav-overlay">
             <RouteContext.Provider value={{ route: overlay.route, params: overlay.params }}>
               {registration ? (
                 <registration.component params={overlay.params} />

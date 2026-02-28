@@ -7,7 +7,7 @@ import { createInitialState } from '../core/state.js';
 import type { NavigationAction, NavigationState } from '../core/types.js';
 import type { NavigationStoreForHooks } from './context.js';
 import { GuardRegistryContext, NavigationStoreContext } from './context.js';
-import { useModal } from './useModal.js';
+import { useOverlay } from './useOverlay.js';
 
 function createTestStore(initialState: NavigationState): NavigationStoreForHooks {
   let state = initialState;
@@ -35,7 +35,7 @@ function createTestStore(initialState: NavigationState): NavigationStoreForHooks
 
 let idCounter = 0;
 function testCreateId(): string {
-  return `test-modal-id-${++idCounter}`;
+  return `test-overlay-id-${++idCounter}`;
 }
 
 function createWrapper(store: NavigationStoreForHooks) {
@@ -51,7 +51,7 @@ function createWrapper(store: NavigationStoreForHooks) {
   };
 }
 
-describe('useModal', () => {
+describe('useOverlay', () => {
   it('initially isOpen is false and current is null', () => {
     const state = createInitialState(
       { tabs: ['home'], initialTab: 'home' },
@@ -61,13 +61,13 @@ describe('useModal', () => {
     const store = createTestStore(state);
     const wrapper = createWrapper(store);
 
-    const { result } = renderHook(() => useModal(), { wrapper });
+    const { result } = renderHook(() => useOverlay(), { wrapper });
 
     expect(result.current.isOpen).toBe(false);
     expect(result.current.current).toBeNull();
   });
 
-  it('open dispatches OPEN_OVERLAY with type modal', () => {
+  it('open dispatches OPEN_OVERLAY', () => {
     const state = createInitialState(
       { tabs: ['home'], initialTab: 'home' },
       testCreateId,
@@ -76,7 +76,7 @@ describe('useModal', () => {
     const store = createTestStore(state);
     const wrapper = createWrapper(store);
 
-    const { result } = renderHook(() => useModal(), { wrapper });
+    const { result } = renderHook(() => useOverlay(), { wrapper });
 
     act(() => {
       result.current.open('confirm-dialog', { message: 'Are you sure?' });
@@ -87,7 +87,6 @@ describe('useModal', () => {
 
     const overlays = store.getState().overlays;
     expect(overlays).toHaveLength(1);
-    expect(overlays[0].type).toBe('modal');
     expect(overlays[0].route).toBe('confirm-dialog');
     expect(overlays[0].params).toEqual({ message: 'Are you sure?' });
   });
@@ -101,10 +100,10 @@ describe('useModal', () => {
     const store = createTestStore(state);
     const wrapper = createWrapper(store);
 
-    const { result } = renderHook(() => useModal(), { wrapper });
+    const { result } = renderHook(() => useOverlay(), { wrapper });
 
     act(() => {
-      result.current.open('simple-modal');
+      result.current.open('simple-overlay');
     });
 
     expect(store.getState().overlays[0].params).toEqual({});
@@ -119,10 +118,10 @@ describe('useModal', () => {
     const store = createTestStore(state);
     const wrapper = createWrapper(store);
 
-    const { result } = renderHook(() => useModal(), { wrapper });
+    const { result } = renderHook(() => useOverlay(), { wrapper });
 
     act(() => {
-      result.current.open('my-modal');
+      result.current.open('my-overlay');
     });
     expect(result.current.isOpen).toBe(true);
 
@@ -143,24 +142,24 @@ describe('useModal', () => {
     const store = createTestStore(state);
     const wrapper = createWrapper(store);
 
-    const { result } = renderHook(() => useModal(), { wrapper });
+    const { result } = renderHook(() => useOverlay(), { wrapper });
 
     act(() => {
-      result.current.open('modal-a');
-      result.current.open('modal-b');
+      result.current.open('overlay-a');
+      result.current.open('overlay-b');
     });
 
     expect(store.getState().overlays).toHaveLength(2);
 
     act(() => {
-      result.current.close('modal-a');
+      result.current.close('overlay-a');
     });
 
     expect(store.getState().overlays).toHaveLength(1);
-    expect(store.getState().overlays[0].route).toBe('modal-b');
+    expect(store.getState().overlays[0].route).toBe('overlay-b');
   });
 
-  it('current tracks the last modal, ignoring sheets', () => {
+  it('current tracks the last overlay', () => {
     const state = createInitialState(
       { tabs: ['home'], initialTab: 'home' },
       testCreateId,
@@ -169,36 +168,24 @@ describe('useModal', () => {
     const store = createTestStore(state);
     const wrapper = createWrapper(store);
 
-    const { result } = renderHook(() => useModal(), { wrapper });
+    const { result } = renderHook(() => useOverlay(), { wrapper });
 
-    // Open a sheet overlay directly via store
     act(() => {
-      store.dispatch({
-        type: 'OPEN_OVERLAY',
-        overlayType: 'sheet',
-        route: 'my-sheet',
-        params: {},
-        id: 'sheet-1',
-        timestamp: 1000,
-      });
+      result.current.open('overlay-a');
     });
 
-    // useModal should not see the sheet
-    expect(result.current.isOpen).toBe(false);
-    expect(result.current.current).toBeNull();
+    expect(result.current.current).toBe('overlay-a');
 
-    // Now open a modal
     act(() => {
-      result.current.open('my-modal');
+      result.current.open('overlay-b');
     });
 
-    expect(result.current.isOpen).toBe(true);
-    expect(result.current.current).toBe('my-modal');
+    expect(result.current.current).toBe('overlay-b');
   });
 
   it('throws when used outside provider', () => {
     expect(() => {
-      renderHook(() => useModal());
+      renderHook(() => useOverlay());
     }).toThrow('useNavigationStore must be used within NavigationProvider');
   });
 });

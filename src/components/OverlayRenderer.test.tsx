@@ -54,19 +54,18 @@ describe('OverlayRenderer', () => {
     expect(container.querySelectorAll('[data-route-type="overlay"]')).toHaveLength(0);
   });
 
-  it('renders modal overlay with correct attributes', () => {
+  it('renders overlay with correct attributes', () => {
     const { Wrapper, store, screenRegistry } = createTestWrapper();
 
-    const ModalComponent = () => <div>Modal Content</div>;
-    screenRegistry.register({ route: 'settings', component: ModalComponent });
+    const OverlayComponent = () => <div>Overlay Content</div>;
+    screenRegistry.register({ route: 'settings', component: OverlayComponent });
 
     act(() => {
       store.dispatch({
         type: 'OPEN_OVERLAY',
-        overlayType: 'modal',
         route: 'settings',
         params: {},
-        id: 'modal-1',
+        id: 'overlay-1',
         timestamp: 2000,
       });
     });
@@ -79,62 +78,29 @@ describe('OverlayRenderer', () => {
 
     const overlay = container.querySelector('[data-route-type="overlay"]');
     expect(overlay).not.toBeNull();
-    expect(overlay).toHaveAttribute('data-overlay-type', 'modal');
-    expect(overlay).toHaveClass('rehynav-modal');
-    expect(screen.getByText('Modal Content')).toBeInTheDocument();
-  });
-
-  it('renders sheet overlay with correct attributes', () => {
-    const { Wrapper, store, screenRegistry } = createTestWrapper();
-
-    const SheetComponent = () => <div>Sheet Content</div>;
-    screenRegistry.register({ route: 'share-sheet', component: SheetComponent });
-
-    act(() => {
-      store.dispatch({
-        type: 'OPEN_OVERLAY',
-        overlayType: 'sheet',
-        route: 'share-sheet',
-        params: {},
-        id: 'sheet-1',
-        timestamp: 2000,
-      });
-    });
-
-    const { container } = render(
-      <Wrapper>
-        <OverlayRenderer />
-      </Wrapper>,
-    );
-
-    const overlay = container.querySelector('[data-route-type="overlay"]');
-    expect(overlay).not.toBeNull();
-    expect(overlay).toHaveAttribute('data-overlay-type', 'sheet');
-    expect(overlay).toHaveClass('rehynav-sheet');
-    expect(screen.getByText('Sheet Content')).toBeInTheDocument();
+    expect(overlay).toHaveClass('rehynav-overlay');
+    expect(screen.getByText('Overlay Content')).toBeInTheDocument();
   });
 
   it('renders multiple overlays', () => {
     const { Wrapper, store, screenRegistry } = createTestWrapper();
 
-    const ModalA = () => <div>Modal A</div>;
-    const SheetB = () => <div>Sheet B</div>;
-    screenRegistry.register({ route: 'modal-a', component: ModalA });
-    screenRegistry.register({ route: 'sheet-b', component: SheetB });
+    const OverlayA = () => <div>Overlay A</div>;
+    const OverlayB = () => <div>Overlay B</div>;
+    screenRegistry.register({ route: 'overlay-a', component: OverlayA });
+    screenRegistry.register({ route: 'overlay-b', component: OverlayB });
 
     act(() => {
       store.dispatch({
         type: 'OPEN_OVERLAY',
-        overlayType: 'modal',
-        route: 'modal-a',
+        route: 'overlay-a',
         params: {},
         id: 'overlay-1',
         timestamp: 2000,
       });
       store.dispatch({
         type: 'OPEN_OVERLAY',
-        overlayType: 'sheet',
-        route: 'sheet-b',
+        route: 'overlay-b',
         params: {},
         id: 'overlay-2',
         timestamp: 2001,
@@ -149,8 +115,8 @@ describe('OverlayRenderer', () => {
 
     const overlays = container.querySelectorAll('[data-route-type="overlay"]');
     expect(overlays).toHaveLength(2);
-    expect(screen.getByText('Modal A')).toBeInTheDocument();
-    expect(screen.getByText('Sheet B')).toBeInTheDocument();
+    expect(screen.getByText('Overlay A')).toBeInTheDocument();
+    expect(screen.getByText('Overlay B')).toBeInTheDocument();
   });
 
   it('renders UnregisteredScreenError for unregistered overlay routes', () => {
@@ -159,8 +125,7 @@ describe('OverlayRenderer', () => {
     act(() => {
       store.dispatch({
         type: 'OPEN_OVERLAY',
-        overlayType: 'modal',
-        route: 'unknown-modal',
+        route: 'unknown-overlay',
         params: {},
         id: 'overlay-1',
         timestamp: 2000,
