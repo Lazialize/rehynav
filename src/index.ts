@@ -1,5 +1,10 @@
 // Primary API
 
+// Components
+export { Link } from './components/Link.js';
+export { Screen } from './components/Screen.js';
+export { TabNavigator } from './components/TabNavigator.js';
+
 export type {
   BackResult,
   NavigationAction,
