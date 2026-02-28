@@ -21,7 +21,7 @@ export function OverlayRenderer(): React.ReactElement {
           >
             <RouteContext.Provider value={{ route: overlay.route, params: overlay.params }}>
               {registration ? (
-                <registration.component />
+                <registration.component params={overlay.params} />
               ) : (
                 <UnregisteredScreenError route={overlay.route} registry={registry} />
               )}

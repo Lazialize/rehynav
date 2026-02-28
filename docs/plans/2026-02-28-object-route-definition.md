@@ -1,29 +1,38 @@
-# Object-Based Route Definition Implementation Plan
+# Function-Based Route Definition Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Replace the three-layer route definition (manual RouteMap type + createRouter config + JSX Screen components) with a single Record-based config object that auto-infers route types.
+**Goal:** Replace the three-layer route definition with helper functions (`tab`, `stack`, `modal`, `sheet`) and a single `createRouter` call. Route types auto-inferred. **No backward compatibility.**
 
-**Architecture:** The new `createRouter` accepts a Record-based config with components embedded. Type utilities extract route names and path params from the config object keys. The ScreenRegistry is pre-populated at creation time instead of requiring JSX Screen components.
+**Architecture:** Helper functions create typed definition objects. `createRouter` accepts arrays of these definitions. Path params inferred from route strings via `ExtractParams`. Overlay params inferred from component `ScreenComponentProps<P>` props via `InferComponentParams`. ScreenRegistry pre-populated at creation time.
 
-**Tech Stack:** TypeScript (template literal types for param extraction), React, Vitest
+**Tech Stack:** TypeScript (template literal types, generic inference), React, Vitest
+
+**Breaking change:** Bump version to `0.2.0`. All old types and `Screen` component deleted. Single `createRouter` signature.
 
 ---
 
-### Task 1: Add type utilities for path param extraction and route inference
+### Task 1: Create helper functions and new type system
+
+> **Note:** Tasks 1-3 are tightly coupled. The codebase will not compile between them. All three must be completed before running tests.
 
 **Files:**
-- Modify: `src/types/routes.ts`
+- Create: `src/route-helpers.ts`
+- Create: `src/route-helpers.test.ts`
+- Modify: `src/types/routes.ts` (gut and rebuild)
+- Delete: `src/types/register.ts`
+- Modify: `src/types/props.ts` (remove dead generic types)
 - Create: `src/types/routes.test-d.ts` (type-level tests)
-- Reference: `docs/plans/2026-02-28-object-route-definition-design.md`
 
-**Step 1: Write the failing type test**
+**Step 1: Write the type tests**
 
-Create `src/types/routes.test-d.ts` with type-level assertions:
+Create `src/types/routes.test-d.ts`:
 
 ```typescript
 import { assertType, describe, it } from 'vitest';
-import type { ExtractParams, InferRouteMap, OverlayRouteConfig, StackRouteConfig, TabRouteConfig } from './routes.js';
+import type { ScreenComponentProps } from './props.js';
+import type { ExtractParams, InferComponentParams, InferRouteMap } from './routes.js';
+import type { TabDef, StackDef, OverlayDef } from '../route-helpers.js';
 
 describe('ExtractParams', () => {
   it('extracts single param', () => {
@@ -31,27 +40,41 @@ describe('ExtractParams', () => {
   });
 
   it('extracts multiple params', () => {
-    assertType<{ userId: string; postId: string }>({} as ExtractParams<':userId/posts/:postId'>);
+    assertType<{ userId: string } & { postId: string }>({} as ExtractParams<':userId/posts/:postId'>);
   });
 
   it('returns empty for no params', () => {
-    assertType<Record<string, never>>({} as ExtractParams<'settings'>);
+    assertType<{}>({} as ExtractParams<'settings'>);
+  });
+
+  it('handles param followed by literal segment', () => {
+    assertType<{ id: string }>({} as ExtractParams<':id/details'>);
+  });
+});
+
+describe('InferComponentParams', () => {
+  it('extracts params from ScreenComponentProps', () => {
+    type C = React.FC<ScreenComponentProps<{ postId: string; title: string }>>;
+    assertType<{ postId: string; title: string }>({} as InferComponentParams<C>);
+  });
+
+  it('returns empty for components without params', () => {
+    type C = React.FC;
+    assertType<{}>({} as InferComponentParams<C>);
   });
 });
 
 describe('InferRouteMap', () => {
-  it('infers tabs, stacks, modals, sheets from config', () => {
-    type Tabs = {
-      home: {
-        component: React.ComponentType<any>;
-        children: {
-          'post-detail/:postId': StackRouteConfig;
-        };
-      };
-      search: TabRouteConfig;
-    };
-    type Modals = { 'new-post': OverlayRouteConfig };
-    type Sheets = { share: OverlayRouteConfig };
+  it('infers tabs, stacks, modals, sheets from definitions', () => {
+    type ShareSheetComponent = React.FC<ScreenComponentProps<{ postId: string; title: string }>>;
+    type NoParamsComponent = React.FC;
+
+    type Tabs = [
+      TabDef<'home', NoParamsComponent, [StackDef<'post-detail/:postId', NoParamsComponent>]>,
+      TabDef<'search', NoParamsComponent, []>,
+    ];
+    type Modals = [OverlayDef<'new-post', NoParamsComponent>];
+    type Sheets = [OverlayDef<'share', ShareSheetComponent>];
 
     type Result = InferRouteMap<Tabs, Modals, Sheets>;
 
@@ -59,106 +82,236 @@ describe('InferRouteMap', () => {
     assertType<'home' | 'search'>({} as keyof Result['tabs']);
     // Stack routes with params
     assertType<{ postId: string }>({} as Result['stacks']['home/post-detail/:postId']);
-    // Modal and sheet names
-    assertType<'new-post'>({} as keyof Result['modals']);
-    assertType<'share'>({} as keyof Result['sheets']);
+    // Modal (no params)
+    assertType<{}>({} as Result['modals']['new-post']);
+    // Sheet with params inferred from component
+    assertType<{ postId: string; title: string }>({} as Result['sheets']['share']);
   });
 });
 ```
 
-**Step 2: Run test to verify it fails**
-
-Run: `npx vitest run src/types/routes.test-d.ts --typecheck`
-Expected: FAIL — `ExtractParams`, `InferRouteMap`, `TabRouteConfig`, `StackRouteConfig`, `OverlayRouteConfig` not exported
-
-**Step 3: Implement the type utilities**
-
-Add to `src/types/routes.ts`:
+**Step 2: Create `src/route-helpers.ts`**
 
 ```typescript
-// --- Config types for object-based route definition ---
+import type { ScreenOptions } from './store/screen-registry.js';
 
-export interface TabRouteConfig {
-  component: React.ComponentType<any>;
-  children?: Record<string, StackRouteConfig>;
+// --- Definition types (returned by helper functions) ---
+
+export interface TabDef<
+  N extends string = string,
+  C extends React.ComponentType<any> = React.ComponentType<any>,
+  S extends StackDef[] = StackDef[],
+> {
+  readonly _tag: 'tab';
+  readonly name: N;
+  readonly component: C;
+  readonly children: S;
 }
 
-export interface StackRouteConfig {
-  component: React.ComponentType<any>;
-  options?: import('./props.js').ScreenOptions;
+export interface StackDef<
+  P extends string = string,
+  C extends React.ComponentType<any> = React.ComponentType<any>,
+> {
+  readonly _tag: 'stack';
+  readonly path: P;
+  readonly component: C;
+  readonly options?: ScreenOptions;
 }
 
-export interface OverlayRouteConfig {
-  component: React.ComponentType<any>;
+export interface OverlayDef<
+  N extends string = string,
+  C extends React.ComponentType<any> = React.ComponentType<any>,
+> {
+  readonly _tag: 'overlay';
+  readonly name: N;
+  readonly component: C;
+  readonly options?: ScreenOptions;
 }
+
+// --- Helper functions ---
+
+export function tab<
+  N extends string,
+  C extends React.ComponentType<any>,
+  S extends StackDef[],
+>(name: N, component: C, children?: [...S]): TabDef<N, C, S> {
+  return {
+    _tag: 'tab',
+    name,
+    component,
+    children: (children ?? []) as S,
+  };
+}
+
+export function stack<
+  P extends string,
+  C extends React.ComponentType<any>,
+>(path: P, component: C, options?: ScreenOptions): StackDef<P, C> {
+  return { _tag: 'stack', path, component, options };
+}
+
+export function modal<
+  N extends string,
+  C extends React.ComponentType<any>,
+>(name: N, component: C, options?: ScreenOptions): OverlayDef<N, C> {
+  return { _tag: 'overlay', name, component, options };
+}
+
+export function sheet<
+  N extends string,
+  C extends React.ComponentType<any>,
+>(name: N, component: C, options?: ScreenOptions): OverlayDef<N, C> {
+  return { _tag: 'overlay', name, component, options };
+}
+```
+
+**Step 3: Create `src/route-helpers.test.ts`**
+
+```typescript
+import { describe, expect, it } from 'vitest';
+import { tab, stack, modal, sheet } from './route-helpers.js';
+
+const DummyComponent: React.FC = () => null;
+
+describe('tab', () => {
+  it('creates a tab definition', () => {
+    const def = tab('home', DummyComponent);
+    expect(def._tag).toBe('tab');
+    expect(def.name).toBe('home');
+    expect(def.component).toBe(DummyComponent);
+    expect(def.children).toEqual([]);
+  });
+
+  it('creates a tab with children', () => {
+    const child = stack('detail/:id', DummyComponent);
+    const def = tab('home', DummyComponent, [child]);
+    expect(def.children).toHaveLength(1);
+    expect(def.children[0].path).toBe('detail/:id');
+  });
+});
+
+describe('stack', () => {
+  it('creates a stack definition', () => {
+    const def = stack('detail/:id', DummyComponent);
+    expect(def._tag).toBe('stack');
+    expect(def.path).toBe('detail/:id');
+  });
+
+  it('accepts options', () => {
+    const def = stack('detail/:id', DummyComponent, { transition: 'fade' });
+    expect(def.options?.transition).toBe('fade');
+  });
+});
+
+describe('modal', () => {
+  it('creates an overlay definition', () => {
+    const def = modal('login', DummyComponent);
+    expect(def._tag).toBe('overlay');
+    expect(def.name).toBe('login');
+  });
+});
+
+describe('sheet', () => {
+  it('creates an overlay definition', () => {
+    const def = sheet('share', DummyComponent);
+    expect(def._tag).toBe('overlay');
+    expect(def.name).toBe('share');
+  });
+});
+```
+
+**Step 4: Replace `src/types/routes.ts`**
+
+Delete all old types and replace with:
+
+```typescript
+import type { Serializable } from './serializable.js';
+import type { ScreenComponentProps } from './props.js';
+import type { TabDef, StackDef, OverlayDef } from '../route-helpers.js';
 
 // --- Type inference utilities ---
 
-// Extract path params: 'post-detail/:postId' → { postId: string }
+// Extract path params: 'post-detail/:postId' -> { postId: string }
 export type ExtractParams<T extends string> =
   T extends `${string}:${infer Param}/${infer Rest}`
-    ? { [K in Param | keyof ExtractParams<Rest>]: string }
+    ? { [K in Param]: string } & ExtractParams<Rest>
     : T extends `${string}:${infer Param}`
       ? { [K in Param]: string }
-      : Record<string, never>;
+      : {};
 
-// Infer full RouteMap from config types
+// Infer overlay params from component's ScreenComponentProps props type
+export type InferComponentParams<C> =
+  C extends React.ComponentType<ScreenComponentProps<infer P>>
+    ? P extends Record<string, Serializable>
+      ? P
+      : {}
+    : {};
+
+// Infer full RouteMap from definition arrays
 export type InferRouteMap<
-  TTabs extends Record<string, TabRouteConfig>,
-  TModals extends Record<string, OverlayRouteConfig> = Record<string, never>,
-  TSheets extends Record<string, OverlayRouteConfig> = Record<string, never>,
+  TTabs extends TabDef[] = [],
+  TModals extends OverlayDef[] = [],
+  TSheets extends OverlayDef[] = [],
 > = {
-  tabs: { [K in keyof TTabs & string]: Record<string, never> };
-  stacks: InferStacks<TTabs>;
-  modals: { [K in keyof TModals & string]: Record<string, never> };
-  sheets: { [K in keyof TSheets & string]: Record<string, never> };
+  tabs: { [T in TTabs[number] as T['name']]: {} };
+  stacks: InferStacksFromTabs<TTabs>;
+  modals: { [D in TModals[number] as D['name']]: InferComponentParams<D['component']> };
+  sheets: { [D in TSheets[number] as D['name']]: InferComponentParams<D['component']> };
 };
 
-// Helper: infer stacks from tab children
-type InferStacks<TTabs extends Record<string, TabRouteConfig>> = UnionToIntersection<
+// Infer stacks from tab definitions
+type InferStacksFromTabs<T extends TabDef[]> = UnionToIntersection<
   {
-    [Tab in keyof TTabs & string]: TTabs[Tab] extends { children: infer C }
-      ? C extends Record<string, StackRouteConfig>
-        ? { [Path in keyof C & string as `${Tab}/${Path}`]: ExtractParams<Path> }
-        : Record<string, never>
-      : Record<string, never>;
-  }[keyof TTabs & string]
+    [I in keyof T]: T[I] extends TabDef<infer N extends string, any, infer S extends StackDef[]>
+      ? S extends []
+        ? never
+        : { [SD in S[number] as `${N}/${SD['path']}`]: ExtractParams<SD['path']> }
+      : never
+  }[number]
 >;
 
-// Helper: convert union to intersection for merging stack records
 type UnionToIntersection<U> = (U extends any ? (x: U) => void : never) extends (x: infer I) => void
   ? I
   : never;
 ```
 
-**Step 4: Run test to verify it passes**
+**Step 5: Delete `src/types/register.ts`**
 
-Run: `npx vitest run src/types/routes.test-d.ts --typecheck`
-Expected: PASS
+Delete the entire file.
 
-**Step 5: Commit**
+**Step 6: Clean up `src/types/props.ts`**
+
+- Delete `ScreenProps<R, RouteName>` (lines 52-57)
+- Delete generic `LinkProps<R, RouteName>` (lines 59-80) and its helper interfaces `LinkPropsNoParams`, `LinkPropsWithParams`
+- Keep: `NavigationProviderProps`, `TabNavigatorProps`, `TabBarProps`, `TabInfo`, `TransitionConfig`, `ScreenOptions`, `ScreenComponentProps`
+- Remove the `import type { AllRoutes, LinkableRoutes, RequiredKeys, RouteMap, RouteParams } from './routes'` import
+
+**Step 7: Commit**
 
 ```bash
-git add src/types/routes.ts src/types/routes.test-d.ts
-git commit -m "feat: add type utilities for object-based route definition"
+git add -A
+git commit -m "feat: add route helper functions and new type system"
 ```
 
 ---
 
-### Task 2: Add new RouterConfig type and update createRouter signature
+### Task 2: Rewrite createRouter — single signature, array-based config
 
 **Files:**
 - Modify: `src/create-router.ts`
-- Modify: `src/create-router.test.tsx`
+- Rewrite: `src/create-router.test.tsx`
 
-**Step 1: Write the failing test**
+**Step 1: Write new tests**
 
-Add a new test block in `src/create-router.test.tsx` for the new config format. Keep existing tests passing (backward compat for now):
+Rewrite `src/create-router.test.tsx` entirely:
 
 ```typescript
 import type React from 'react';
+import { act, renderHook } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
+import { createRouter } from './create-router.js';
+import { tab, stack, modal, sheet } from './route-helpers.js';
 
-// Dummy components for testing
 const HomeScreen: React.FC = () => null;
 const SearchScreen: React.FC = () => null;
 const ProfileScreen: React.FC = () => null;
@@ -166,27 +319,23 @@ const DetailScreen: React.FC = () => null;
 const LoginModal: React.FC = () => null;
 const ActionSheet: React.FC = () => null;
 
-describe('createRouter with object config', () => {
-  it('should accept Record-based config and return RouterInstance', () => {
+describe('createRouter', () => {
+  it('should accept function-based config and return RouterInstance', () => {
     const router = createRouter({
-      tabs: {
-        home: {
-          component: HomeScreen,
-          children: {
-            'detail/:id': { component: DetailScreen },
-          },
-        },
-        search: { component: SearchScreen },
-        profile: { component: ProfileScreen },
-      },
-      modals: {
-        login: { component: LoginModal },
-      },
-      sheets: {
-        'action-sheet': { component: ActionSheet },
-      },
+      tabs: [
+        tab('home', HomeScreen, [
+          stack('detail/:id', DetailScreen),
+        ]),
+        tab('search', SearchScreen),
+        tab('profile', ProfileScreen),
+      ],
+      modals: [
+        modal('login', LoginModal),
+      ],
+      sheets: [
+        sheet('action-sheet', ActionSheet),
+      ],
       initialTab: 'home',
-      tabOrder: ['home', 'search', 'profile'],
     });
 
     expect(router.NavigationProvider).toBeDefined();
@@ -199,20 +348,16 @@ describe('createRouter with object config', () => {
 
   it('should pre-populate screen registry from config', () => {
     const router = createRouter({
-      tabs: {
-        home: {
-          component: HomeScreen,
-          children: {
-            'detail/:id': { component: DetailScreen },
-          },
-        },
-        search: { component: SearchScreen },
-      },
-      modals: {
-        login: { component: LoginModal },
-      },
+      tabs: [
+        tab('home', HomeScreen, [
+          stack('detail/:id', DetailScreen),
+        ]),
+        tab('search', SearchScreen),
+      ],
+      modals: [
+        modal('login', LoginModal),
+      ],
       initialTab: 'home',
-      tabOrder: ['home', 'search'],
     });
 
     const wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -221,7 +366,6 @@ describe('createRouter with object config', () => {
 
     const { result } = renderHook(() => router.useNavigation(), { wrapper });
 
-    // Push to a child route — should work without <Screen> registration
     act(() => {
       result.current.push('home/detail/:id', { id: '42' });
     });
@@ -229,15 +373,14 @@ describe('createRouter with object config', () => {
     expect(result.current.canGoBack()).toBe(true);
   });
 
-  it('should use tabOrder for tab ordering', () => {
+  it('should use array order as tab order', () => {
     const router = createRouter({
-      tabs: {
-        home: { component: HomeScreen },
-        search: { component: SearchScreen },
-        profile: { component: ProfileScreen },
-      },
-      initialTab: 'search',
-      tabOrder: ['home', 'search', 'profile'],
+      tabs: [
+        tab('profile', ProfileScreen),
+        tab('home', HomeScreen),
+        tab('search', SearchScreen),
+      ],
+      initialTab: 'home',
     });
 
     const wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -246,22 +389,18 @@ describe('createRouter with object config', () => {
 
     const { result } = renderHook(() => router.useTab(), { wrapper });
 
-    expect(result.current.activeTab).toBe('search');
-    expect(result.current.tabs).toEqual(['home', 'search', 'profile']);
+    expect(result.current.activeTab).toBe('home');
+    expect(result.current.tabs).toEqual(['profile', 'home', 'search']);
   });
 
   it('should auto-generate route patterns for path params', () => {
     const router = createRouter({
-      tabs: {
-        home: {
-          component: HomeScreen,
-          children: {
-            'post/:postId': { component: DetailScreen },
-          },
-        },
-      },
+      tabs: [
+        tab('home', HomeScreen, [
+          stack('post/:postId', DetailScreen),
+        ]),
+      ],
       initialTab: 'home',
-      tabOrder: ['home'],
     });
 
     const wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -270,7 +409,6 @@ describe('createRouter with object config', () => {
 
     const { result } = renderHook(() => router.useNavigation(), { wrapper });
 
-    // Should be able to push with path params
     act(() => {
       result.current.push('home/post/:postId', { postId: '123' });
     });
@@ -280,202 +418,221 @@ describe('createRouter with object config', () => {
 });
 ```
 
-**Step 2: Run test to verify it fails**
+**Step 2: Rewrite `src/create-router.ts`**
 
-Run: `npx vitest run src/create-router.test.tsx`
-Expected: FAIL — createRouter doesn't accept the new config format
-
-**Step 3: Implement the new createRouter overload**
-
-Modify `src/create-router.ts`. Use function overloading to support both old and new config:
+Replace the old `RouterConfig<R>` with the new function-based config:
 
 ```typescript
-import type { InferRouteMap, OverlayRouteConfig, StackRouteConfig, TabRouteConfig } from './types/routes.js';
+import type { TabDef, StackDef, OverlayDef } from './route-helpers.js';
+// ... other existing imports (keep unchanged)
 
-// --- New config type ---
-export interface ObjectRouterConfig<
-  TTabs extends Record<string, TabRouteConfig>,
-  TModals extends Record<string, OverlayRouteConfig> = Record<string, never>,
-  TSheets extends Record<string, OverlayRouteConfig> = Record<string, never>,
+// Remove: import type { RouteMap } from './types/routes.js';
+// Remove: old RouterConfig<R extends RouteMap>
+
+export interface RouterConfig<
+  TTabs extends TabDef[] = TabDef[],
+  TModals extends OverlayDef[] = [],
+  TSheets extends OverlayDef[] = [],
 > {
-  tabs: TTabs;
-  modals?: TModals;
-  sheets?: TSheets;
-  initialTab: keyof TTabs & string;
-  tabOrder: Array<keyof TTabs & string>;
+  tabs: [...TTabs];
+  modals?: [...TModals];
+  sheets?: [...TSheets];
+  initialTab: TTabs[number]['name'];
 }
 
-// --- Overloads ---
-// New: object-based config
+export interface RouterInstance {
+  // ... unchanged from current
+}
+
 export function createRouter<
-  TTabs extends Record<string, TabRouteConfig>,
-  TModals extends Record<string, OverlayRouteConfig>,
-  TSheets extends Record<string, OverlayRouteConfig>,
->(config: ObjectRouterConfig<TTabs, TModals, TSheets>): RouterInstance;
+  TTabs extends TabDef[],
+  TModals extends OverlayDef[],
+  TSheets extends OverlayDef[],
+>(config: RouterConfig<TTabs, TModals, TSheets>): RouterInstance {
+  const { tabNames, registrations, routes } = parseConfig(config);
+  const initialTab = config.initialTab as string;
+  const routePatterns = routes.length > 0 ? parseRoutePatterns(routes) : undefined;
 
-// Legacy: array-based config
-export function createRouter<R extends RouteMap>(config: RouterConfig<R>): RouterInstance;
+  function NavigationProvider(props: NavigationProviderProps): React.ReactElement {
+    const { children, urlSync = false, basePath = '/', onStateChange, initialState } = props;
 
-// Implementation
-export function createRouter(config: any): RouterInstance {
-  // Detect config type: new format has object `tabs`, old format has array `tabs`
-  const isObjectConfig = !Array.isArray(config.tabs);
+    const storeRef = useRef<ReturnType<typeof createNavigationStore> | null>(null);
+    if (storeRef.current === null) {
+      storeRef.current = createNavigationStore(
+        initialState ?? createInitialState({ tabs: tabNames, initialTab }, createId, Date.now),
+      );
+    }
+    const store = storeRef.current;
 
-  let tabs: string[];
-  let initialTab: string;
-  let routePatterns: Map<string, RoutePattern> | undefined;
-  let preRegistrations: ScreenRegistration[] | undefined;
+    const screenRegistryRef = useRef<ScreenRegistryForHooks | null>(null);
+    if (screenRegistryRef.current === null) {
+      const registry = createScreenRegistry();
+      for (const reg of registrations) {
+        registry.register(reg);
+      }
+      screenRegistryRef.current = registry as unknown as ScreenRegistryForHooks;
+    }
+    const screenRegistry = screenRegistryRef.current;
 
-  if (isObjectConfig) {
-    // New object-based config
-    tabs = config.tabOrder as string[];
-    initialTab = config.initialTab as string;
+    // ... guardRegistry, useEffect for onStateChange, useEffect for urlSync — unchanged
 
-    // Build screen registrations and route patterns from config
-    const { registrations, routes } = parseObjectConfig(config);
-    preRegistrations = registrations;
-    routePatterns = routes.length > 0 ? parseRoutePatterns(routes) : undefined;
-  } else {
-    // Legacy array-based config
-    tabs = config.tabs as string[];
-    initialTab = config.initialTab as string;
-    routePatterns = config.routes ? parseRoutePatterns(config.routes) : undefined;
+    return createElement(
+      NavigationStoreContext.Provider,
+      { value: store },
+      createElement(
+        ScreenRegistryContext.Provider,
+        { value: screenRegistry },
+        createElement(
+          GuardRegistryContext.Provider,
+          { value: guardRegistry },
+          createElement(RoutePatternsContext.Provider, { value: routePatterns ?? null }, children),
+        ),
+      ),
+    );
   }
 
-  // ... rest of createRouter unchanged, but pass preRegistrations to NavigationProvider
+  return {
+    NavigationProvider,
+    useNavigation,
+    useRoute,
+    useTab,
+    useModal,
+    useSheet,
+    useBeforeNavigate,
+    useBackHandler,
+  };
 }
-```
 
-Add a helper function `parseObjectConfig`:
+// --- Config parser ---
 
-```typescript
-import type { ScreenRegistration } from './store/screen-registry.js';
-
-function parseObjectConfig(config: ObjectRouterConfig<any, any, any>): {
+function parseConfig(config: RouterConfig<any, any, any>): {
+  tabNames: string[];
   registrations: ScreenRegistration[];
   routes: string[];
 } {
+  const tabNames: string[] = [];
   const registrations: ScreenRegistration[] = [];
   const routes: string[] = [];
 
-  // Process tabs and their children
-  for (const [tabName, tabConfig] of Object.entries(config.tabs) as [string, TabRouteConfig][]) {
-    registrations.push({ route: tabName, component: tabConfig.component });
-    routes.push(tabName);
+  for (const tabDef of config.tabs) {
+    tabNames.push(tabDef.name);
+    registrations.push({ route: tabDef.name, component: tabDef.component });
+    routes.push(tabDef.name);
 
-    if (tabConfig.children) {
-      for (const [path, stackConfig] of Object.entries(tabConfig.children) as [string, StackRouteConfig][]) {
-        const fullRoute = `${tabName}/${path}`;
-        registrations.push({
-          route: fullRoute,
-          component: stackConfig.component,
-          options: stackConfig.options,
-        });
-        routes.push(fullRoute);
-      }
+    for (const stackDef of tabDef.children) {
+      const fullRoute = `${tabDef.name}/${stackDef.path}`;
+      registrations.push({
+        route: fullRoute,
+        component: stackDef.component,
+        options: stackDef.options,
+      });
+      routes.push(fullRoute);
     }
   }
 
-  // Process modals
   if (config.modals) {
-    for (const [name, overlayConfig] of Object.entries(config.modals) as [string, OverlayRouteConfig][]) {
-      registrations.push({ route: name, component: overlayConfig.component });
+    for (const modalDef of config.modals) {
+      registrations.push({
+        route: modalDef.name,
+        component: modalDef.component,
+        options: modalDef.options,
+      });
     }
   }
 
-  // Process sheets
   if (config.sheets) {
-    for (const [name, overlayConfig] of Object.entries(config.sheets) as [string, OverlayRouteConfig][]) {
-      registrations.push({ route: name, component: overlayConfig.component });
+    for (const sheetDef of config.sheets) {
+      registrations.push({
+        route: sheetDef.name,
+        component: sheetDef.component,
+        options: sheetDef.options,
+      });
     }
   }
 
-  return { registrations, routes };
+  return { tabNames, registrations, routes };
 }
 ```
 
-Modify the `NavigationProvider` function to pre-populate the screen registry:
+**Step 3: Run tests**
 
-```typescript
-function NavigationProvider(props: NavigationProviderProps): React.ReactElement {
-  // ... existing code ...
-
-  const screenRegistryRef = useRef<ScreenRegistryForHooks | null>(null);
-  if (screenRegistryRef.current === null) {
-    const registry = createScreenRegistry();
-    // Pre-populate from config if available
-    if (preRegistrations) {
-      for (const reg of preRegistrations) {
-        registry.register(reg);
-      }
-    }
-    screenRegistryRef.current = registry as unknown as ScreenRegistryForHooks;
-  }
-
-  // ... rest unchanged ...
-}
-```
-
-**Step 4: Run test to verify it passes**
-
-Run: `npx vitest run src/create-router.test.tsx`
-Expected: PASS (both old and new tests)
-
-**Step 5: Commit**
-
-```bash
-git add src/create-router.ts src/create-router.test.tsx
-git commit -m "feat: support object-based route config in createRouter"
-```
-
----
-
-### Task 3: Mark Screen component as deprecated and update exports
-
-**Files:**
-- Modify: `src/components/Screen.tsx`
-- Modify: `src/index.ts`
-
-**Step 1: Add deprecation JSDoc to Screen**
-
-In `src/components/Screen.tsx`, add a deprecation notice:
-
-```typescript
-/**
- * @deprecated Use object-based route config in `createRouter()` instead.
- * Components are now registered via the config object, making Screen unnecessary.
- * This component is kept for backward compatibility and dynamic registration use cases.
- */
-export function Screen({ name, component, options }: ScreenProps): null {
-```
-
-**Step 2: Update exports in `src/index.ts`**
-
-Add the new config types to exports:
-
-```typescript
-export type {
-  // ... existing exports ...
-  TabRouteConfig,
-  StackRouteConfig,
-  OverlayRouteConfig,
-  ExtractParams,
-  InferRouteMap,
-} from './types/routes.js';
-
-export type { ObjectRouterConfig } from './create-router.js';
-```
-
-**Step 3: Run all tests to ensure nothing is broken**
-
-Run: `npx vitest run`
-Expected: All PASS
+Run: `npx vitest run src/create-router.test.tsx src/route-helpers.test.ts`
+Expected: PASS
 
 **Step 4: Commit**
 
 ```bash
-git add src/components/Screen.tsx src/index.ts
-git commit -m "feat: deprecate Screen component, export new config types"
+git add src/create-router.ts src/create-router.test.tsx
+git commit -m "feat: rewrite createRouter with function-based config"
+```
+
+---
+
+### Task 3: Delete Screen component, clean up exports
+
+**Files:**
+- Delete: `src/components/Screen.tsx`
+- Delete: `src/components/Screen.test.tsx`
+- Modify: `src/components/NavigationProvider.tsx` — delete standalone provider
+- Delete: `src/components/NavigationProvider.test.tsx`
+- Modify: `src/index.ts`
+
+**Step 1: Delete Screen component and tests**
+
+```bash
+rm src/components/Screen.tsx src/components/Screen.test.tsx
+```
+
+**Step 2: Delete standalone NavigationProvider**
+
+The standalone `NavigationProvider` at `src/components/NavigationProvider.tsx` uses the old config format (`tabs: string[]`). Since `createRouter` is the only entry point, delete it and its tests.
+
+```bash
+rm src/components/NavigationProvider.tsx src/components/NavigationProvider.test.tsx
+```
+
+**Step 3: Update exports in `src/index.ts`**
+
+Remove:
+```typescript
+export { Screen } from './components/Screen.js';
+export type { ScreenProps } from './types/props.js';
+export type { Register, RegisteredRouteMap, Router } from './types/register.js';
+export type {
+  AllRoutes, LinkableRoutes, ModalRoutes, RequiredKeys,
+  RouteMap, RouteParams, SheetRoutes, StackRoutes, TabRoutes, ValidStackKey,
+} from './types/routes.js';
+// Also remove LinkProps from props.ts export (the generic version is deleted)
+```
+
+Add:
+```typescript
+// Route helpers
+export { tab, stack, modal, sheet } from './route-helpers.js';
+export type { TabDef, StackDef, OverlayDef } from './route-helpers.js';
+
+// Type utilities
+export type { RouterConfig } from './create-router.js';
+export type { ExtractParams, InferRouteMap, InferComponentParams } from './types/routes.js';
+```
+
+Keep unchanged: `Link`, `TabNavigator`, `createRouter`, `RouterInstance`, all hooks, `ScreenComponentProps`, `ScreenOptions`, `NavigationProviderProps`, `TabBarProps`, `TabInfo`, `TabNavigatorProps`, `TransitionConfig`, `Serializable`, core types, `HistorySyncManager`, `shallowEqual`.
+
+**Step 4: Run all tests**
+
+Run: `npx vitest run`
+Expected: All PASS
+
+**Step 5: Run type checking**
+
+Run: `npx tsc --noEmit`
+Expected: No type errors
+
+**Step 6: Commit**
+
+```bash
+git add -A
+git commit -m "feat: delete Screen, clean up exports, add route helper exports"
 ```
 
 ---
@@ -486,13 +643,11 @@ git commit -m "feat: deprecate Screen component, export new config types"
 - Modify: `examples/sns-app/src/App.tsx`
 - Delete: `examples/sns-app/src/routes.ts`
 
-**Step 1: Rewrite App.tsx to use new config format**
-
-Replace the current three-part definition with:
+**Step 1: Rewrite App.tsx**
 
 ```typescript
 import type { TabBarProps } from 'rehynav';
-import { createRouter, TabNavigator } from 'rehynav';
+import { createRouter, tab, stack, modal, sheet, TabNavigator } from 'rehynav';
 import './App.css';
 
 import { NewPostModal } from './overlays/NewPostModal';
@@ -503,35 +658,23 @@ import { ProfileScreen } from './screens/ProfileScreen';
 import { SearchScreen } from './screens/SearchScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
 
+const postDetail = stack('post-detail/:postId', PostDetailScreen);
+
 const router = createRouter({
-  tabs: {
-    home: {
-      component: HomeScreen,
-      children: {
-        'post-detail/:postId': { component: PostDetailScreen },
-      },
-    },
-    search: {
-      component: SearchScreen,
-      children: {
-        'post-detail/:postId': { component: PostDetailScreen },
-      },
-    },
-    profile: {
-      component: ProfileScreen,
-      children: {
-        settings: { component: SettingsScreen },
-      },
-    },
-  },
-  modals: {
-    'new-post': { component: NewPostModal },
-  },
-  sheets: {
-    share: { component: ShareSheet },
-  },
+  tabs: [
+    tab('home', HomeScreen, [postDetail]),
+    tab('search', SearchScreen, [postDetail]),
+    tab('profile', ProfileScreen, [
+      stack('settings', SettingsScreen),
+    ]),
+  ],
+  modals: [
+    modal('new-post', NewPostModal),
+  ],
+  sheets: [
+    sheet('share', ShareSheet),
+  ],
   initialTab: 'home',
-  tabOrder: ['home', 'search', 'profile'],
 });
 
 export const {
@@ -546,7 +689,28 @@ export const {
 } = router;
 
 function AppTabBar({ tabs, onTabPress }: TabBarProps) {
-  // ... unchanged ...
+  const icons: Record<string, string> = {
+    home: '🏠',
+    search: '🔍',
+    profile: '👤',
+  };
+
+  return (
+    <nav className="tab-bar">
+      {tabs.map((t) => (
+        <button
+          key={t.name}
+          type="button"
+          className={`tab-item ${t.isActive ? 'active' : ''}`}
+          onClick={() => onTabPress(t.name)}
+        >
+          <span className="tab-icon">{icons[t.name] ?? '•'}</span>
+          <span className="tab-label">{t.name}</span>
+          {t.badge != null && <span className="tab-badge">{t.badge}</span>}
+        </button>
+      ))}
+    </nav>
+  );
 }
 
 export function App() {
@@ -560,47 +724,73 @@ export function App() {
 
 **Step 2: Delete `examples/sns-app/src/routes.ts`**
 
-The manual `AppRoutes` type is no longer needed.
+```bash
+git rm examples/sns-app/src/routes.ts
+```
 
 **Step 3: Verify the example app builds**
 
 Run: `cd examples/sns-app && npm run build`
 Expected: Build succeeds
 
-**Step 4: Verify the example app runs**
-
-Run: `cd examples/sns-app && npm run dev`
-Expected: App starts, navigation works
-
-**Step 5: Commit**
+**Step 4: Commit**
 
 ```bash
 git add examples/sns-app/src/App.tsx
 git rm examples/sns-app/src/routes.ts
-git commit -m "refactor: migrate sns-app example to object-based route config"
+git commit -m "refactor: migrate sns-app example to function-based route config"
 ```
 
 ---
 
-### Task 5: Verify all tests pass and run final check
-
-**Files:** (none — verification only)
+### Task 5: Full verification and version bump
 
 **Step 1: Run full test suite**
 
 Run: `npx vitest run`
 Expected: All tests PASS
 
-**Step 2: Run type checking**
+**Step 2: Run type checking (including type-level tests)**
 
-Run: `npx tsc --noEmit`
-Expected: No type errors
+Run: `npx vitest run --typecheck && npx tsc --noEmit`
+Expected: No errors
 
 **Step 3: Run linter**
 
 Run: `npx biome check src/`
 Expected: No errors
 
-**Step 4: Commit if any fixes needed**
+**Step 4: Build the package**
 
-Only if previous steps required adjustments.
+Run: `pnpm build`
+Expected: Build succeeds
+
+**Step 5: Create changeset**
+
+Run: `pnpm changeset`
+Type: `minor`
+Description: "Replace three-layer route definition with function-based API (`tab`, `stack`, `modal`, `sheet`). Breaking change: Screen component removed, old RouteMap types removed, createRouter signature changed."
+
+**Step 6: Commit if any fixes needed**
+
+---
+
+## Test Impact Summary
+
+| Test File | Action | Reason |
+|-----------|--------|--------|
+| `src/create-router.test.tsx` | **Rewrite** | Old config format |
+| `src/route-helpers.test.ts` | **Create** | New helper functions |
+| `src/types/routes.test-d.ts` | **Create** | New type-level tests |
+| `src/components/Screen.test.tsx` | **Delete** | Component deleted |
+| `src/components/NavigationProvider.test.tsx` | **Delete** | Standalone provider deleted |
+| `src/components/StackRenderer.test.tsx` | **Keep** | Uses createScreenRegistry directly |
+| `src/components/TabNavigator.test.tsx` | **Keep** | Same |
+| `src/components/OverlayRenderer.test.tsx` | **Keep** | Same |
+| `src/components/Link.test.tsx` | **Keep** | Same |
+| `src/hooks/useNavigation.test.tsx` | **Keep** | Uses test helper, not createRouter |
+| `src/hooks/useTab.test.tsx` | **Keep** | Same |
+| `src/hooks/useModal.test.tsx` | **Keep** | Same |
+| `src/hooks/useSheet.test.tsx` | **Keep** | Same |
+| `src/store/screen-registry.test.ts` | **Keep** | Tests registry directly |
+| `test/helpers/renderWithNav.tsx` | **Keep** | Constructs providers directly |
