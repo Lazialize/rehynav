@@ -4,17 +4,17 @@ import type { RouteMap } from 'rehynav';
 // rehynav uses this for type-safe navigation throughout the app.
 export type AppRoutes = {
   tabs: {
-    home: {};
-    search: {};
-    profile: {};
+    home: Record<string, never>;
+    search: Record<string, never>;
+    profile: Record<string, never>;
   };
   stacks: {
     'home/post-detail': { postId: string };
     'search/post-detail': { postId: string };
-    'profile/settings': {};
+    'profile/settings': Record<string, never>;
   };
   modals: {
-    'new-post': {};
+    'new-post': Record<string, never>;
   };
   sheets: {
     share: { postId: string; title: string };
