@@ -1,0 +1,37 @@
+import { useContext } from 'react';
+import type { Serializable } from '../core/types.js';
+import { stateToUrl } from '../core/url.js';
+import { RouteContext } from './context.js';
+import { useNavigationSelector } from './useNavigationSelector.js';
+
+export interface RouteInfoResult {
+  name: string;
+  params: Record<string, Serializable>;
+  path: string;
+}
+
+export function useRoute(): RouteInfoResult {
+  const routeCtx = useContext(RouteContext);
+
+  // Always call useNavigationSelector to satisfy the rules of hooks
+  const stateRoute = useNavigationSelector((state) => {
+    const activeTabState = state.tabs[state.activeTab];
+    const topEntry = activeTabState.stack[activeTabState.stack.length - 1];
+    return {
+      name: topEntry.route,
+      params: topEntry.params,
+      path: stateToUrl(state),
+    };
+  });
+
+  // If inside a Screen component, use the route context for name/params
+  if (routeCtx) {
+    return {
+      name: routeCtx.route,
+      params: routeCtx.params,
+      path: stateRoute.path,
+    };
+  }
+
+  return stateRoute;
+}
