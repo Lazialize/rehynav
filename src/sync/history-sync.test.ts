@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createId } from '../core/id.js';
+import { parseRoutePatterns } from '../core/path-params.js';
 import { createInitialState } from '../core/state.js';
 import type { NavigationStore } from '../store/navigation-store.js';
 import { createNavigationStore } from '../store/navigation-store.js';
@@ -483,6 +484,67 @@ describe('HistorySyncManager', () => {
 
       expect(goSpy).not.toHaveBeenCalled();
       expect(pushStateSpy).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('with routePatterns', () => {
+    const patterns = parseRoutePatterns(['home', 'home/post-detail/:postId', 'search', 'profile']);
+
+    it('should generate URLs with path params embedded', () => {
+      store = createTestStore();
+      manager = new HistorySyncManager(store, '/', patterns);
+
+      vi.spyOn(window.history, 'replaceState').mockImplementation(() => {});
+      const localPushSpy = vi.spyOn(window.history, 'pushState').mockImplementation(() => {});
+
+      manager.start();
+
+      store.dispatch({
+        type: 'PUSH',
+        route: 'home/post-detail/:postId',
+        params: { postId: '42' },
+        id: createId(),
+        timestamp: Date.now(),
+      });
+
+      expect(localPushSpy).toHaveBeenCalledTimes(1);
+      const [, , url] = localPushSpy.mock.calls[0];
+      expect(url).toBe('/home/post-detail/42');
+    });
+
+    it('should put non-path params in query string', () => {
+      store = createTestStore();
+      manager = new HistorySyncManager(store, '/', patterns);
+
+      vi.spyOn(window.history, 'replaceState').mockImplementation(() => {});
+      const localPushSpy = vi.spyOn(window.history, 'pushState').mockImplementation(() => {});
+
+      manager.start();
+
+      store.dispatch({
+        type: 'PUSH',
+        route: 'home/post-detail/:postId',
+        params: { postId: '42', tab: 'comments' },
+        id: createId(),
+        timestamp: Date.now(),
+      });
+
+      expect(localPushSpy).toHaveBeenCalledTimes(1);
+      const [, , url] = localPushSpy.mock.calls[0];
+      expect(url).toBe('/home/post-detail/42?tab=comments');
+    });
+
+    it('should work normally for routes without path params', () => {
+      store = createTestStore();
+      manager = new HistorySyncManager(store, '/', patterns);
+
+      const localReplaceSpy = vi.spyOn(window.history, 'replaceState').mockImplementation(() => {});
+
+      manager.start();
+
+      expect(localReplaceSpy).toHaveBeenCalledTimes(1);
+      const [, , url] = localReplaceSpy.mock.calls[0];
+      expect(url).toBe('/home');
     });
   });
 });

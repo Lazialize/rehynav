@@ -9,8 +9,8 @@ export type AppRoutes = {
     profile: Record<string, never>;
   };
   stacks: {
-    'home/post-detail': { postId: string };
-    'search/post-detail': { postId: string };
+    'home/post-detail/:postId': { postId: string };
+    'search/post-detail/:postId': { postId: string };
     'profile/settings': Record<string, never>;
   };
   modals: {

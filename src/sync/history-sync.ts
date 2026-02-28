@@ -1,3 +1,4 @@
+import type { RoutePattern } from '../core/path-params.js';
 import type { NavigationState, OverlayEntry, StackEntry } from '../core/types.js';
 import { stateToUrl } from '../core/url.js';
 import type { NavigationStore } from '../store/navigation-store.js';
@@ -11,14 +12,20 @@ interface HistoryState {
 export class HistorySyncManager {
   private store: NavigationStore;
   private basePath: string;
+  private routePatterns?: Map<string, RoutePattern>;
   private unsubscribe: (() => void) | null = null;
   private popStateHandler: ((event: PopStateEvent) => void) | null = null;
   private previousState: NavigationState | null = null;
   private isSyncing = false;
 
-  constructor(store: NavigationStore, basePath: string = '/') {
+  constructor(
+    store: NavigationStore,
+    basePath: string = '/',
+    routePatterns?: Map<string, RoutePattern>,
+  ) {
     this.store = store;
     this.basePath = basePath;
+    this.routePatterns = routePatterns;
   }
 
   start(): void {
@@ -26,7 +33,7 @@ export class HistorySyncManager {
     this.previousState = state;
 
     // Replace current history entry with initial state
-    const url = stateToUrl(state, this.basePath);
+    const url = stateToUrl(state, this.basePath, this.routePatterns);
     const historyState = this.createHistoryState(state);
     window.history.replaceState(historyState, '', url);
 
@@ -81,7 +88,7 @@ export class HistorySyncManager {
 
     if (!prev) return;
 
-    const url = stateToUrl(currentState, this.basePath);
+    const url = stateToUrl(currentState, this.basePath, this.routePatterns);
     const historyState = this.createHistoryState(currentState);
 
     const topEntry = this.getTopEntry(currentState);

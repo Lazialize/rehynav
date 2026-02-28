@@ -1,5 +1,6 @@
 import { createContext, useContext } from 'react';
 import type { NavigationGuardRegistry } from '../core/navigation-guard.js';
+import type { RoutePattern } from '../core/path-params.js';
 import type { NavigationAction, NavigationState, Serializable } from '../core/types.js';
 
 // Minimal store interface that hooks consume
@@ -29,6 +30,9 @@ export const ScreenRegistryContext: React.Context<ScreenRegistryForHooks | null>
   createContext<ScreenRegistryForHooks | null>(null);
 export const GuardRegistryContext: React.Context<NavigationGuardRegistry | null> =
   createContext<NavigationGuardRegistry | null>(null);
+
+export const RoutePatternsContext: React.Context<Map<string, RoutePattern> | null> =
+  createContext<Map<string, RoutePattern> | null>(null);
 
 // Route context for auto-inferring route info inside Screen components
 export const RouteContext: React.Context<{

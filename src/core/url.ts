@@ -1,25 +1,44 @@
+import { matchUrl, type RoutePattern } from './path-params.js';
 import { resolveTabForRoute } from './route-utils.js';
 import { createInitialState } from './state.js';
 import type { NavigationState, Serializable } from './types.js';
 
-export function stateToUrl(state: NavigationState, basePath: string = '/'): string {
+export function stateToUrl(
+  state: NavigationState,
+  basePath: string = '/',
+  routePatterns?: Map<string, RoutePattern>,
+): string {
   const activeTabState = state.tabs[state.activeTab];
   const topEntry = activeTabState.stack[activeTabState.stack.length - 1];
 
-  // Route name -> URL path
-  const path = basePath + topEntry.route;
-
-  // Serialize params as query string (only non-empty params)
   const params = topEntry.params;
+  const pattern = routePatterns?.get(topEntry.route);
+
+  // Build URL path: use toPath() for parameterized routes, plain route name otherwise
+  let urlPath: string;
+  if (pattern && pattern.paramNames.length > 0) {
+    const pathParams: Record<string, string> = {};
+    for (const name of pattern.paramNames) {
+      if (params[name] !== undefined && params[name] !== null) {
+        pathParams[name] = String(params[name]);
+      }
+    }
+    urlPath = basePath + pattern.toPath(pathParams);
+  } else {
+    urlPath = basePath + topEntry.route;
+  }
+
+  // Remaining params (not in path) go to query string
+  const pathParamSet = pattern ? new Set(pattern.paramNames) : new Set<string>();
   const searchParams = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
-    if (value !== undefined && value !== null) {
+    if (value !== undefined && value !== null && !pathParamSet.has(key)) {
       searchParams.set(key, String(value));
     }
   }
 
   const search = searchParams.toString();
-  return search ? `${path}?${search}` : path;
+  return search ? `${urlPath}?${search}` : urlPath;
 }
 
 export function urlToState(
@@ -28,6 +47,7 @@ export function urlToState(
   basePath: string = '/',
   createId: () => string,
   now: () => number,
+  routePatterns?: Map<string, RoutePattern>,
 ): NavigationState {
   const parsed = new URL(url, 'http://localhost');
   const pathname = parsed.pathname.replace(basePath, '').replace(/^\//, '');
@@ -38,15 +58,28 @@ export function urlToState(
     params[key] = value;
   }
 
+  // Try to match against route patterns to extract path params and resolve route name
+  let routeName = pathname;
+  if (routePatterns && pathname) {
+    const matched = matchUrl(pathname, routePatterns);
+    if (matched) {
+      routeName = matched.route;
+      // Merge path params with query params (path params take precedence)
+      for (const [key, value] of Object.entries(matched.params)) {
+        params[key] = value;
+      }
+    }
+  }
+
   // Determine which tab this route belongs to
-  const tab = resolveTabForRoute(pathname || config.initialTab, config.tabs);
+  const tab = resolveTabForRoute(routeName || config.initialTab, config.tabs);
   const targetTab = tab || config.initialTab;
 
   // Build state with the deep-linked route on the correct tab's stack
   const baseState = createInitialState(config, createId, now);
   const baseTab = baseState.tabs[targetTab];
 
-  if (pathname && pathname !== targetTab) {
+  if (routeName && routeName !== targetTab) {
     // Deep link to a stack screen: push it onto the tab's stack
     return {
       ...baseState,
@@ -55,14 +88,14 @@ export function urlToState(
         ...baseState.tabs,
         [targetTab]: {
           ...baseTab,
-          stack: [...baseTab.stack, { id: createId(), route: pathname, params, timestamp: now() }],
+          stack: [...baseTab.stack, { id: createId(), route: routeName, params, timestamp: now() }],
           hasBeenActive: true,
         },
       },
     };
   }
 
-  if (pathname === targetTab && Object.keys(params).length > 0) {
+  if (routeName === targetTab && Object.keys(params).length > 0) {
     // Deep link to a tab root with params
     return {
       ...baseState,

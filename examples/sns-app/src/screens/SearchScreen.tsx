@@ -31,7 +31,7 @@ export function SearchScreen() {
         {filtered.map((post) => (
           <li key={post.id} className="post-card">
             {/* Same PostDetailScreen, but under search tab's stack */}
-            <Link to="search/post-detail" params={{ postId: post.id }}>
+            <Link to="search/post-detail/:postId" params={{ postId: post.id }}>
               <strong>@{post.author}</strong>
               <p>{post.content}</p>
             </Link>

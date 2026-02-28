@@ -18,7 +18,7 @@ export function HomeScreen() {
         {posts.map((post) => (
           <li key={post.id} className="post-card">
             {/* Link — declarative, type-safe navigation */}
-            <Link to="home/post-detail" params={{ postId: post.id }}>
+            <Link to="home/post-detail/:postId" params={{ postId: post.id }}>
               <strong>@{post.author}</strong>
               <p>{post.content}</p>
               <span className="post-meta">
