@@ -226,7 +226,13 @@ export function navigationReducer(
       if (state.overlays.length === 0) return state;
 
       if (action.route) {
-        const index = state.overlays.findIndex((o) => o.route === action.route);
+        let index = -1;
+        for (let i = state.overlays.length - 1; i >= 0; i--) {
+          if (state.overlays[i].route === action.route) {
+            index = i;
+            break;
+          }
+        }
         if (index === -1) return state;
 
         return {

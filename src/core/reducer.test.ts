@@ -444,6 +444,28 @@ describe('navigationReducer', () => {
       expect(next).toBe(state);
     });
 
+    it('closes the topmost matching overlay when duplicates exist', () => {
+      let state = makeState();
+      state = dispatch(state, {
+        type: 'OPEN_OVERLAY',
+        route: 'share',
+        params: {},
+        id: 'overlay-1',
+        timestamp: 2000,
+      });
+      state = dispatch(state, {
+        type: 'OPEN_OVERLAY',
+        route: 'share',
+        params: {},
+        id: 'overlay-2',
+        timestamp: 3000,
+      });
+
+      const next = dispatch(state, { type: 'CLOSE_OVERLAY', route: 'share' });
+      expect(next.overlays).toHaveLength(1);
+      expect(next.overlays[0].id).toBe('overlay-1');
+    });
+
     it('returns same state when specified route is not found', () => {
       let state = makeState();
       state = dispatch(state, {
