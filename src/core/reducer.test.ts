@@ -838,6 +838,30 @@ describe('navigationReducer', () => {
       expect(next.activeLayer).toBe('screens');
       expect(next.overlays).toHaveLength(0);
     });
+
+    it('sets activeLayer to tabs and clears screens when restoring to a tab entry from screens layer', () => {
+      const state = makeStateWithScreens();
+      expect(state.activeLayer).toBe('screens');
+      const tabRootId = state.tabs.home.stack[0].id;
+
+      const next = dispatch(state, { type: 'RESTORE_TO_ENTRY', entryId: tabRootId });
+      expect(next.activeLayer).toBe('tabs');
+      expect(next.screens).toEqual([]);
+      expect(next.activeTab).toBe('home');
+      expect(next.overlays).toHaveLength(0);
+    });
+
+    it('sets activeLayer to tabs and clears screens on fallback when entry not found from screens layer', () => {
+      const state = makeStateWithScreens();
+      expect(state.activeLayer).toBe('screens');
+
+      const next = dispatch(state, { type: 'RESTORE_TO_ENTRY', entryId: 'nonexistent' });
+      expect(next.activeLayer).toBe('tabs');
+      expect(next.screens).toEqual([]);
+      expect(next.activeTab).toBe('home');
+      expect(next.tabs.home.stack).toHaveLength(1);
+      expect(next.overlays).toHaveLength(0);
+    });
   });
 
   describe('immutability', () => {

@@ -275,10 +275,11 @@ export function navigationReducer(
         const tabState = state.tabs[tabName];
         for (let i = tabState.stack.length - 1; i >= 0; i--) {
           if (tabState.stack[i].id === action.entryId) {
-            // Restore to this stack entry: trim stack, clear overlays, switch tab
+            // Restore to this stack entry: trim stack, clear overlays, switch tab, activate tabs layer
             return {
               ...state,
               activeTab: tabName,
+              activeLayer: 'tabs',
               tabs: {
                 ...state.tabs,
                 [tabName]: {
@@ -287,6 +288,7 @@ export function navigationReducer(
                   hasBeenActive: true,
                 },
               },
+              screens: [],
               overlays: [],
             };
           }
@@ -299,6 +301,7 @@ export function navigationReducer(
       return {
         ...state,
         activeTab: initialTab,
+        activeLayer: 'tabs',
         tabs: {
           ...state.tabs,
           [initialTab]: {
@@ -307,6 +310,7 @@ export function navigationReducer(
             hasBeenActive: true,
           },
         },
+        screens: [],
         overlays: [],
       };
     }
