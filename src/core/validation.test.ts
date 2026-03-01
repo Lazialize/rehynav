@@ -119,6 +119,27 @@ describe('validateSerializable', () => {
     expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('params.id'));
   });
 
+  it('logs error for bigint values', () => {
+    process.env.NODE_ENV = 'development';
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    validateSerializable({ count: BigInt(42) } as Record<string, unknown>, 'push("test")');
+
+    expect(errorSpy).toHaveBeenCalledOnce();
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('params.count'));
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('bigint'));
+  });
+
+  it('logs error for nested bigint values', () => {
+    process.env.NODE_ENV = 'development';
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    validateSerializable({ data: { id: BigInt(1) } } as Record<string, unknown>, 'push("test")');
+
+    expect(errorSpy).toHaveBeenCalledOnce();
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('params.data.id'));
+  });
+
   it('logs multiple errors for multiple non-serializable values', () => {
     process.env.NODE_ENV = 'development';
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});

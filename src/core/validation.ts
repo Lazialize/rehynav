@@ -19,7 +19,7 @@ export function validateSerializable(params: Record<string, unknown>, context: s
     if (value === null || value === undefined) return;
 
     const type = typeof value;
-    if (type === 'function' || type === 'symbol') {
+    if (type === 'function' || type === 'symbol' || type === 'bigint') {
       console.error(
         `[rehynav] Non-serializable value in ${context} ${path}: ${type}. ` +
           `Route params must be serializable (string, number, boolean, null, arrays, plain objects). ` +
