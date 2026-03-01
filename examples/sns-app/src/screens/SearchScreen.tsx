@@ -1,9 +1,17 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link } from 'rehynav';
+import { useIsFocused, useScrollRestoration } from '../App';
 import { posts } from '../data';
 
 export function SearchScreen() {
   const [query, setQuery] = useState('');
+
+  // useIsFocused — boolean indicating if this screen is currently focused
+  const isFocused = useIsFocused();
+
+  // useScrollRestoration — preserves scroll position
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useScrollRestoration(scrollRef);
 
   const filtered = query
     ? posts.filter(
@@ -16,7 +24,7 @@ export function SearchScreen() {
   return (
     <div className="screen">
       <header className="screen-header">
-        <h1>Search</h1>
+        <h1>Search {isFocused ? '' : '(inactive)'}</h1>
       </header>
 
       <input
@@ -27,7 +35,7 @@ export function SearchScreen() {
         onChange={(e) => setQuery(e.target.value)}
       />
 
-      <ul className="post-list">
+      <ul className="post-list" ref={scrollRef} style={{ overflow: 'auto', flex: 1 }}>
         {filtered.map((post) => (
           <li key={post.id} className="post-card">
             {/* Same PostDetailScreen, but under search tab's stack */}

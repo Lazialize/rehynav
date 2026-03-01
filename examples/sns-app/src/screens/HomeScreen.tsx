@@ -1,9 +1,16 @@
-import { Link, useOverlay } from 'rehynav';
+import { useRef } from 'react';
+import { Link, useNavigation, useOverlay } from 'rehynav';
+import { useScrollRestoration } from '../App';
 import { posts } from '../data';
 
 export function HomeScreen() {
   // useOverlay — open overlays imperatively
   const overlay = useOverlay();
+  const navigation = useNavigation();
+
+  // useScrollRestoration — preserves scroll position across tab switches and overlay open/close
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useScrollRestoration(scrollRef);
 
   return (
     <div className="screen">
@@ -14,11 +21,18 @@ export function HomeScreen() {
         </button>
       </header>
 
-      <ul className="post-list">
+      <ul className="post-list" ref={scrollRef} style={{ overflow: 'auto', flex: 1 }}>
         {posts.map((post) => (
           <li key={post.id} className="post-card">
             {/* Link — declarative, type-safe navigation */}
-            <Link to="home/post-detail/:postId" params={{ postId: post.id }}>
+            {/* preload — pre-render the detail screen on touch start for instant navigation */}
+            <Link
+              to="home/post-detail/:postId"
+              params={{ postId: post.id }}
+              onTouchStart={() =>
+                navigation.preload('home/post-detail/:postId', { postId: post.id })
+              }
+            >
               <strong>@{post.author}</strong>
               <p>{post.content}</p>
               <span className="post-meta">

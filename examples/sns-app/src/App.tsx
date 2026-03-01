@@ -1,4 +1,4 @@
-import type { TabBarProps } from 'rehynav';
+import type { ErrorFallbackProps, TabBarProps } from 'rehynav';
 import { createRouter, overlay, stack, TabNavigator, tab } from 'rehynav';
 import './App.css';
 
@@ -30,6 +30,9 @@ export const {
   useOverlay,
   useBeforeNavigate,
   useBackHandler,
+  useFocusEffect,
+  useIsFocused,
+  useScrollRestoration,
 } = router;
 
 function AppTabBar({ tabs, onTabPress }: TabBarProps) {
@@ -57,10 +60,25 @@ function AppTabBar({ tabs, onTabPress }: TabBarProps) {
   );
 }
 
+function AppErrorFallback({ error, route, retry }: ErrorFallbackProps) {
+  return (
+    <div className="screen" style={{ textAlign: 'center', padding: 32 }}>
+      <h2>Oops!</h2>
+      <p>
+        Something went wrong in <code>{route}</code>
+      </p>
+      <pre style={{ fontSize: 12, color: '#c00' }}>{error.message}</pre>
+      <button type="button" onClick={retry} style={{ marginTop: 16, padding: '8px 16px' }}>
+        Try Again
+      </button>
+    </div>
+  );
+}
+
 export function App() {
   return (
     <NavigationProvider urlSync>
-      <TabNavigator tabBar={AppTabBar} />
+      <TabNavigator tabBar={AppTabBar} errorFallback={AppErrorFallback} />
     </NavigationProvider>
   );
 }
