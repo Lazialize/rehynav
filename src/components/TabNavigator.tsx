@@ -6,6 +6,7 @@ import { ErrorFallbackContext } from './ErrorFallbackContext.js';
 import { OverlayRenderer } from './OverlayRenderer.js';
 import { PreloadProvider } from './PreloadContext.js';
 import { PreloadRenderer } from './PreloadRenderer.js';
+import { ScreenRenderer } from './ScreenRenderer.js';
 import { StackRenderer } from './StackRenderer.js';
 import { SuspenseFallbackContext } from './SuspenseFallbackContext.js';
 
@@ -104,6 +105,8 @@ export function TabNavigator({
 }: TabNavigatorProps): React.ReactElement {
   const { activeTab, tabs, switchTab } = useTab();
   const badges = useNavigationSelector((s) => s.badges);
+  const activeLayer = useNavigationSelector((s) => s.activeLayer);
+  const screens = useNavigationSelector((s) => s.screens);
 
   const TabBarComponent = tabBar ?? DefaultTabBar;
 
@@ -120,16 +123,28 @@ export function TabNavigator({
   return (
     <PreloadProvider>
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-        {tabBarPosition === 'top' && tabBarElement}
         <ErrorFallbackContext.Provider value={errorFallback}>
           <SuspenseFallbackContext.Provider value={suspenseFallback}>
-            <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-              <TabContent preserveState={preserveState} lazy={lazy} maxStackDepth={maxStackDepth} />
-            </div>
+            {activeLayer === 'screens' ? (
+              <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+                <ScreenRenderer screens={screens} />
+              </div>
+            ) : (
+              <>
+                {tabBarPosition === 'top' && tabBarElement}
+                <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+                  <TabContent
+                    preserveState={preserveState}
+                    lazy={lazy}
+                    maxStackDepth={maxStackDepth}
+                  />
+                </div>
+                {tabBarPosition === 'bottom' && tabBarElement}
+              </>
+            )}
             <OverlayRenderer />
           </SuspenseFallbackContext.Provider>
         </ErrorFallbackContext.Provider>
-        {tabBarPosition === 'bottom' && tabBarElement}
         <PreloadRenderer />
       </div>
     </PreloadProvider>
