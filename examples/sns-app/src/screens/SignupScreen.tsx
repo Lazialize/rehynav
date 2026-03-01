@@ -1,7 +1,9 @@
 import { useNavigation } from 'rehynav';
+import { useAuth } from '../auth';
 
 export function SignupScreen() {
   const navigation = useNavigation();
+  const { login } = useAuth();
 
   return (
     <div className="screen">
@@ -46,7 +48,10 @@ export function SignupScreen() {
             borderRadius: 4,
             cursor: 'pointer',
           }}
-          onClick={() => navigation.navigateToTabs()}
+          onClick={() => {
+            login();
+            navigation.navigateToTabs();
+          }}
         >
           Create Account
         </button>

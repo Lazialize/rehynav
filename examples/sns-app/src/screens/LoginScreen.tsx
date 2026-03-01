@@ -1,7 +1,24 @@
+import { useEffect } from 'react';
 import { useNavigation } from 'rehynav';
+import { useAuth } from '../auth';
 
 export function LoginScreen() {
   const navigation = useNavigation();
+  const { isAuthenticated, login } = useAuth();
+
+  // Redirect to tabs if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigation.navigateToTabs();
+    }
+  }, [isAuthenticated, navigation]);
+
+  const handleLogin = () => {
+    login();
+    navigation.navigateToTabs();
+  };
+
+  if (isAuthenticated) return null;
 
   return (
     <div className="screen">
@@ -29,7 +46,7 @@ export function LoginScreen() {
             borderRadius: 4,
             cursor: 'pointer',
           }}
-          onClick={() => navigation.navigateToTabs()}
+          onClick={handleLogin}
         >
           Log In
         </button>
