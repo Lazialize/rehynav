@@ -20,7 +20,22 @@ export function handleBack(state: NavigationState): BackResult {
     };
   }
 
-  // Step 2: Pop active tab's stack
+  // Step 2: If screen layer is active, pop screen stack
+  if (state.activeLayer === 'screens') {
+    if (state.screens.length > 1) {
+      return {
+        handled: true,
+        state: {
+          ...state,
+          screens: state.screens.slice(0, -1),
+        },
+      };
+    }
+    // At screen root
+    return { handled: false, state };
+  }
+
+  // Step 3: Pop active tab's stack
   const activeTabState = state.tabs[state.activeTab];
   if (activeTabState.stack.length > 1) {
     return {
@@ -38,7 +53,7 @@ export function handleBack(state: NavigationState): BackResult {
     };
   }
 
-  // Step 3: At root of tab, nothing to do
+  // Step 4: At root of tab, nothing to do
   return { handled: false, state };
 }
 
@@ -243,6 +258,18 @@ export function navigationReducer(
         }
       }
 
+      // Search screen stack
+      for (let i = state.screens.length - 1; i >= 0; i--) {
+        if (state.screens[i].id === action.entryId) {
+          return {
+            ...state,
+            activeLayer: 'screens',
+            screens: state.screens.slice(0, i + 1),
+            overlays: [],
+          };
+        }
+      }
+
       // Search tab stacks
       for (const tabName of state.tabOrder) {
         const tabState = state.tabs[tabName];
@@ -295,6 +322,60 @@ export function navigationReducer(
           ...state.badges,
           [action.tab]: action.badge,
         },
+      };
+    }
+
+    case 'PUSH_SCREEN': {
+      const newEntry: StackEntry = {
+        id: action.id,
+        route: action.route,
+        params: action.params,
+        timestamp: action.timestamp,
+      };
+      return {
+        ...state,
+        screens: [...state.screens, newEntry],
+      };
+    }
+
+    case 'POP_SCREEN': {
+      if (state.screens.length <= 1) return state;
+      return {
+        ...state,
+        screens: state.screens.slice(0, -1),
+      };
+    }
+
+    case 'NAVIGATE_TO_TABS': {
+      const targetTab = action.tab && state.tabs[action.tab] ? action.tab : state.activeTab;
+      return {
+        ...state,
+        activeLayer: 'tabs',
+        screens: [],
+        activeTab: targetTab,
+        overlays: [],
+        tabs: {
+          ...state.tabs,
+          [targetTab]: {
+            ...state.tabs[targetTab],
+            hasBeenActive: true,
+          },
+        },
+      };
+    }
+
+    case 'NAVIGATE_TO_SCREEN': {
+      const newEntry: StackEntry = {
+        id: action.id,
+        route: action.route,
+        params: action.params,
+        timestamp: action.timestamp,
+      };
+      return {
+        ...state,
+        activeLayer: 'screens',
+        screens: [newEntry],
+        overlays: [],
       };
     }
 

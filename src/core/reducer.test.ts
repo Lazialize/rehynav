@@ -16,6 +16,20 @@ function makeState(overrides?: Partial<Parameters<typeof createInitialState>[0]>
   );
 }
 
+function makeStateWithScreens(): NavigationState {
+  idCounter = 0;
+  return createInitialState(
+    {
+      tabs: ['home', 'search', 'profile'],
+      initialTab: 'home',
+      initialScreen: 'login',
+      screenNames: ['login'],
+    },
+    createId,
+    now,
+  );
+}
+
 function dispatch(state: NavigationState, action: NavigationAction): NavigationState {
   return navigationReducer(state, action);
 }
@@ -643,6 +657,186 @@ describe('navigationReducer', () => {
       state = dispatch(state, { type: 'SET_BADGE', tab: 'home', badge: 5 });
       const next = dispatch(state, { type: 'SET_BADGE', tab: 'home', badge: undefined });
       expect(next.badges.home).toBeUndefined();
+    });
+  });
+
+  describe('PUSH_SCREEN', () => {
+    it('pushes a route onto the screen stack', () => {
+      const state = makeStateWithScreens();
+      expect(state.screens).toHaveLength(1);
+
+      const next = dispatch(state, {
+        type: 'PUSH_SCREEN',
+        route: 'login/signup',
+        params: { from: 'login' },
+        id: 'screen-push-1',
+        timestamp: 2000,
+      });
+
+      expect(next.screens).toHaveLength(2);
+      expect(next.screens[1]).toEqual({
+        id: 'screen-push-1',
+        route: 'login/signup',
+        params: { from: 'login' },
+        timestamp: 2000,
+      });
+      expect(next.activeLayer).toBe('screens');
+    });
+  });
+
+  describe('POP_SCREEN', () => {
+    it('pops the top entry from the screen stack', () => {
+      let state = makeStateWithScreens();
+      state = dispatch(state, {
+        type: 'PUSH_SCREEN',
+        route: 'login/signup',
+        params: {},
+        id: 'screen-push-1',
+        timestamp: 2000,
+      });
+      expect(state.screens).toHaveLength(2);
+
+      const next = dispatch(state, { type: 'POP_SCREEN' });
+      expect(next.screens).toHaveLength(1);
+      expect(next.screens[0].route).toBe('login');
+    });
+
+    it('is a no-op when screen stack has only the root entry', () => {
+      const state = makeStateWithScreens();
+      expect(state.screens).toHaveLength(1);
+
+      const next = dispatch(state, { type: 'POP_SCREEN' });
+      expect(next).toBe(state);
+    });
+  });
+
+  describe('NAVIGATE_TO_TABS', () => {
+    it('switches activeLayer to tabs and clears screen stack', () => {
+      const state = makeStateWithScreens();
+      expect(state.activeLayer).toBe('screens');
+
+      const next = dispatch(state, { type: 'NAVIGATE_TO_TABS' });
+      expect(next.activeLayer).toBe('tabs');
+      expect(next.screens).toEqual([]);
+      expect(next.activeTab).toBe('home');
+    });
+
+    it('switches to a specific tab when tab is provided', () => {
+      const state = makeStateWithScreens();
+      const next = dispatch(state, { type: 'NAVIGATE_TO_TABS', tab: 'profile' });
+      expect(next.activeLayer).toBe('tabs');
+      expect(next.activeTab).toBe('profile');
+      expect(next.tabs.profile.hasBeenActive).toBe(true);
+    });
+
+    it('ignores non-existent tab and uses current activeTab', () => {
+      const state = makeStateWithScreens();
+      const next = dispatch(state, { type: 'NAVIGATE_TO_TABS', tab: 'nonexistent' });
+      expect(next.activeLayer).toBe('tabs');
+      expect(next.activeTab).toBe('home');
+    });
+  });
+
+  describe('NAVIGATE_TO_SCREEN', () => {
+    it('switches activeLayer to screens and pushes screen entry', () => {
+      let state = makeStateWithScreens();
+      state = dispatch(state, { type: 'NAVIGATE_TO_TABS' });
+      expect(state.activeLayer).toBe('tabs');
+
+      const next = dispatch(state, {
+        type: 'NAVIGATE_TO_SCREEN',
+        route: 'login',
+        params: {},
+        id: 'screen-nav-1',
+        timestamp: 3000,
+      });
+      expect(next.activeLayer).toBe('screens');
+      expect(next.screens).toHaveLength(1);
+      expect(next.screens[0].route).toBe('login');
+      expect(next.overlays).toEqual([]);
+    });
+
+    it('clears overlays when navigating to screen', () => {
+      let state = makeState();
+      state = dispatch(state, {
+        type: 'OPEN_OVERLAY',
+        route: 'share',
+        params: {},
+        id: 'overlay-1',
+        timestamp: 2000,
+      });
+      expect(state.overlays).toHaveLength(1);
+
+      const next = dispatch(state, {
+        type: 'NAVIGATE_TO_SCREEN',
+        route: 'login',
+        params: {},
+        id: 'screen-nav-1',
+        timestamp: 3000,
+      });
+      expect(next.overlays).toEqual([]);
+      expect(next.activeLayer).toBe('screens');
+    });
+  });
+
+  describe('GO_BACK with screen layer', () => {
+    it('pops the screen stack when activeLayer is screens and no overlays', () => {
+      let state = makeStateWithScreens();
+      state = dispatch(state, {
+        type: 'PUSH_SCREEN',
+        route: 'login/signup',
+        params: {},
+        id: 'screen-push-1',
+        timestamp: 2000,
+      });
+
+      const next = dispatch(state, { type: 'GO_BACK' });
+      expect(next.screens).toHaveLength(1);
+      expect(next.activeLayer).toBe('screens');
+    });
+
+    it('closes overlay before popping screen stack', () => {
+      let state = makeStateWithScreens();
+      state = dispatch(state, {
+        type: 'OPEN_OVERLAY',
+        route: 'share',
+        params: {},
+        id: 'overlay-1',
+        timestamp: 2000,
+      });
+
+      const next = dispatch(state, { type: 'GO_BACK' });
+      expect(next.overlays).toHaveLength(0);
+      expect(next.screens).toHaveLength(1);
+    });
+
+    it('is unhandled at screen root with no overlays', () => {
+      const state = makeStateWithScreens();
+      expect(state.screens).toHaveLength(1);
+
+      const result = handleBack(state);
+      expect(result.handled).toBe(false);
+    });
+  });
+
+  describe('RESTORE_TO_ENTRY with screen layer', () => {
+    it('restores to a screen stack entry', () => {
+      let state = makeStateWithScreens();
+      const screenRootId = state.screens[0].id;
+      state = dispatch(state, {
+        type: 'PUSH_SCREEN',
+        route: 'login/signup',
+        params: {},
+        id: 'screen-push-1',
+        timestamp: 2000,
+      });
+      expect(state.screens).toHaveLength(2);
+
+      const next = dispatch(state, { type: 'RESTORE_TO_ENTRY', entryId: screenRootId });
+      expect(next.screens).toHaveLength(1);
+      expect(next.screens[0].id).toBe(screenRootId);
+      expect(next.activeLayer).toBe('screens');
+      expect(next.overlays).toHaveLength(0);
     });
   });
 
