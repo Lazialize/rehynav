@@ -66,6 +66,10 @@
     "hybrid app"
   ],
   "author": "Naoki Takahashi",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Lazialize/rehynav"
+  },
   "license": "MIT",
   "packageManager": "pnpm@10.30.3",
   "pnpm": {
