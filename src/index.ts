@@ -3,6 +3,7 @@
 // Components
 export { Link } from './components/Link.js';
 export type { PreloadEntry } from './components/PreloadContext.js';
+export { ScreenRenderer } from './components/ScreenRenderer.js';
 export { TabNavigator } from './components/TabNavigator.js';
 
 export type {

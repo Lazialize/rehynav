@@ -13,11 +13,11 @@ import { createNavigationStore } from '../store/navigation-store.js';
 import { createScreenRegistry } from '../store/screen-registry.js';
 import { ScreenRenderer } from './ScreenRenderer.js';
 
-function DummyLoginScreen({ params }: { params: Record<string, unknown> }) {
+function DummyLoginScreen(_props: Record<string, unknown>) {
   return <div>Login Screen</div>;
 }
 
-function DummySignupScreen({ params }: { params: Record<string, unknown> }) {
+function DummySignupScreen(_props: Record<string, unknown>) {
   return <div>Signup Screen</div>;
 }
 
@@ -56,11 +56,15 @@ describe('ScreenRenderer', () => {
     expect(screen.getByText('Login Screen')).toBeInTheDocument();
 
     // Login screen should be hidden
-    const loginDiv = screen.getByText('Login Screen').closest('[data-route-type="screen"]');
+    const loginDiv = screen
+      .getByText('Login Screen')
+      .closest('[data-route-type="screen"]') as HTMLElement | null;
     expect(loginDiv?.style.display).toBe('none');
 
     // Signup screen should be visible
-    const signupDiv = screen.getByText('Signup Screen').closest('[data-route-type="screen"]');
+    const signupDiv = screen
+      .getByText('Signup Screen')
+      .closest('[data-route-type="screen"]') as HTMLElement | null;
     expect(signupDiv?.style.display).toBe('block');
   });
 });
