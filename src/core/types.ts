@@ -102,6 +102,14 @@ export type NavigationAction =
       timestamp: number;
     }
   | { type: 'POP_SCREEN' }
+  | { type: 'POP_SCREEN_TO_ROOT' }
+  | {
+      type: 'REPLACE_SCREEN';
+      route: string;
+      params: Record<string, Serializable>;
+      id: string;
+      timestamp: number;
+    }
   | { type: 'NAVIGATE_TO_TABS'; tab?: string }
   | {
       type: 'NAVIGATE_TO_SCREEN';

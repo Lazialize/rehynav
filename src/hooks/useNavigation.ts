@@ -70,25 +70,46 @@ export function useNavigation(): NavigationActions {
       },
       popToRoot() {
         const state = store.getState();
-        const activeTab = state.tabs[state.activeTab];
-        if (activeTab.stack.length <= 1) return;
         const from = getCurrentRouteInfo(state);
-        const rootEntry = activeTab.stack[0];
-        const toInfo: RouteInfo = { route: rootEntry.route, params: rootEntry.params };
-        if (!guardRegistry.check(from, toInfo, 'back')) return;
-        store.dispatch({ type: 'POP_TO_ROOT' });
+
+        if (state.activeLayer === 'screens') {
+          if (state.screens.length <= 1) return;
+          const rootEntry = state.screens[0];
+          const toInfo: RouteInfo = { route: rootEntry.route, params: rootEntry.params };
+          if (!guardRegistry.check(from, toInfo, 'back')) return;
+          store.dispatch({ type: 'POP_SCREEN_TO_ROOT' });
+        } else {
+          const activeTab = state.tabs[state.activeTab];
+          if (activeTab.stack.length <= 1) return;
+          const rootEntry = activeTab.stack[0];
+          const toInfo: RouteInfo = { route: rootEntry.route, params: rootEntry.params };
+          if (!guardRegistry.check(from, toInfo, 'back')) return;
+          store.dispatch({ type: 'POP_TO_ROOT' });
+        }
       },
       replace(to: string, params: Record<string, Serializable> = {}) {
-        const from = getCurrentRouteInfo(store.getState());
+        const state = store.getState();
+        const from = getCurrentRouteInfo(state);
         const toInfo: RouteInfo = { route: to, params };
         if (!guardRegistry.check(from, toInfo, 'replace')) return;
-        store.dispatch({
-          type: 'REPLACE',
-          route: to,
-          params,
-          id: createId(),
-          timestamp: Date.now(),
-        });
+
+        if (state.activeLayer === 'screens') {
+          store.dispatch({
+            type: 'REPLACE_SCREEN',
+            route: to,
+            params,
+            id: createId(),
+            timestamp: Date.now(),
+          });
+        } else {
+          store.dispatch({
+            type: 'REPLACE',
+            route: to,
+            params,
+            id: createId(),
+            timestamp: Date.now(),
+          });
+        }
       },
       goBack() {
         const state = store.getState();

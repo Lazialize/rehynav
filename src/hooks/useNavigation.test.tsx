@@ -367,6 +367,91 @@ describe('useNavigation', () => {
       expect(store.getState().screens).toHaveLength(1);
     });
 
+    it('replace dispatches REPLACE_SCREEN when activeLayer is screens', () => {
+      const state = createInitialState(
+        {
+          tabs: ['home', 'search'],
+          initialTab: 'home',
+          initialScreen: 'login',
+          screenNames: ['login'],
+        },
+        testCreateId,
+        () => 1000,
+      );
+      const store = createTestStore(state);
+      const wrapper = createWrapper(store);
+
+      const { result } = renderHook(() => useNavigation(), { wrapper });
+
+      act(() => {
+        result.current.push('login/signup');
+      });
+      expect(store.getState().screens).toHaveLength(2);
+
+      act(() => {
+        result.current.replace('login/verify', { code: '1234' });
+      });
+
+      const newState = store.getState();
+      expect(newState.screens).toHaveLength(2);
+      expect(newState.screens[1].route).toBe('login/verify');
+      expect(newState.screens[1].params).toEqual({ code: '1234' });
+    });
+
+    it('popToRoot dispatches POP_SCREEN_TO_ROOT when activeLayer is screens', () => {
+      const state = createInitialState(
+        {
+          tabs: ['home', 'search'],
+          initialTab: 'home',
+          initialScreen: 'login',
+          screenNames: ['login'],
+        },
+        testCreateId,
+        () => 1000,
+      );
+      const store = createTestStore(state);
+      const wrapper = createWrapper(store);
+
+      const { result } = renderHook(() => useNavigation(), { wrapper });
+
+      act(() => {
+        result.current.push('login/signup');
+        result.current.push('login/verify');
+      });
+      expect(store.getState().screens).toHaveLength(3);
+
+      act(() => {
+        result.current.popToRoot();
+      });
+
+      const newState = store.getState();
+      expect(newState.screens).toHaveLength(1);
+      expect(newState.screens[0].route).toBe('login');
+    });
+
+    it('popToRoot is a no-op when screen stack has only root', () => {
+      const state = createInitialState(
+        {
+          tabs: ['home', 'search'],
+          initialTab: 'home',
+          initialScreen: 'login',
+          screenNames: ['login'],
+        },
+        testCreateId,
+        () => 1000,
+      );
+      const store = createTestStore(state);
+      const wrapper = createWrapper(store);
+
+      const { result } = renderHook(() => useNavigation(), { wrapper });
+
+      act(() => {
+        result.current.popToRoot();
+      });
+
+      expect(store.getState().screens).toHaveLength(1);
+    });
+
     it('canGoBack returns true when screen stack has more than one entry', () => {
       const state = createInitialState(
         {
