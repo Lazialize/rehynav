@@ -1,15 +1,20 @@
 import { matchUrl, type RoutePattern } from './path-params.js';
-import { resolveTabForRoute } from './route-utils.js';
+import { resolveScreenForRoute, resolveTabForRoute } from './route-utils.js';
 import { createInitialState } from './state.js';
-import type { NavigationState, Serializable } from './types.js';
+import type { NavigationState, Serializable, StackEntry } from './types.js';
 
 export function stateToUrl(
   state: NavigationState,
   basePath: string = '/',
   routePatterns?: Map<string, RoutePattern>,
 ): string {
-  const activeTabState = state.tabs[state.activeTab];
-  const topEntry = activeTabState.stack[activeTabState.stack.length - 1];
+  let topEntry: StackEntry;
+  if (state.activeLayer === 'screens' && state.screens.length > 0) {
+    topEntry = state.screens[state.screens.length - 1];
+  } else {
+    const activeTabState = state.tabs[state.activeTab];
+    topEntry = activeTabState.stack[activeTabState.stack.length - 1];
+  }
 
   const params = topEntry.params;
   const pattern = routePatterns?.get(topEntry.route);
@@ -43,7 +48,7 @@ export function stateToUrl(
 
 export function urlToState(
   url: string,
-  config: { tabs: string[]; initialTab: string },
+  config: { tabs: string[]; initialTab: string; initialScreen?: string; screenNames?: string[] },
   basePath: string = '/',
   createId: () => string,
   now: () => number,
@@ -69,6 +74,38 @@ export function urlToState(
         params[key] = value;
       }
     }
+  }
+
+  // Check if this route belongs to a screen
+  const screenNames = config.screenNames ?? [];
+  const screenName = resolveScreenForRoute(routeName || '', screenNames);
+
+  if (screenName) {
+    const baseState = createInitialState(
+      { tabs: config.tabs, initialTab: config.initialTab, initialScreen: screenName, screenNames },
+      createId,
+      now,
+    );
+
+    if (routeName && routeName !== screenName) {
+      // Deep link to a screen stack entry
+      return {
+        ...baseState,
+        screens: [
+          ...baseState.screens,
+          { id: createId(), route: routeName, params, timestamp: now() },
+        ],
+      };
+    }
+
+    if (routeName === screenName && Object.keys(params).length > 0) {
+      return {
+        ...baseState,
+        screens: [{ ...baseState.screens[0], params }],
+      };
+    }
+
+    return baseState;
   }
 
   // Determine which tab this route belongs to

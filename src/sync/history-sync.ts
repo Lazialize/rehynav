@@ -14,6 +14,8 @@ export interface HistorySyncConfig {
   initialTab: string;
   createId: () => string;
   now: () => number;
+  initialScreen?: string;
+  screenNames?: string[];
 }
 
 export class HistorySyncManager {
@@ -129,6 +131,27 @@ export class HistorySyncManager {
       this.persistParams(topEntry.id, topEntry.params);
     }
 
+    // Layer transition
+    if (prev.activeLayer !== currentState.activeLayer) {
+      window.history.pushState(historyState, '', url);
+      this.previousState = currentState;
+      return;
+    }
+
+    // Screen layer changes
+    if (currentState.activeLayer === 'screens') {
+      if (currentState.screens.length > prev.screens.length) {
+        window.history.pushState(historyState, '', url);
+      } else if (currentState.screens.length < prev.screens.length) {
+        const delta = prev.screens.length - currentState.screens.length;
+        this.goBackSilently(delta, historyState, url);
+      } else {
+        window.history.replaceState(historyState, '', url);
+      }
+      this.previousState = currentState;
+      return;
+    }
+
     if (prev.activeTab !== currentState.activeTab) {
       // Tab switch: always push a new history entry so browser back
       // returns to the previous tab with its stack intact
@@ -221,6 +244,9 @@ export class HistorySyncManager {
   }
 
   getTotalDepth(state: NavigationState): number {
+    if (state.activeLayer === 'screens') {
+      return state.screens.length + state.overlays.length;
+    }
     const activeTabState = state.tabs[state.activeTab];
     return activeTabState.stack.length + state.overlays.length;
   }
@@ -233,6 +259,9 @@ export class HistorySyncManager {
   getTopEntry(state: NavigationState): StackEntry | OverlayEntry {
     if (state.overlays.length > 0) {
       return state.overlays[state.overlays.length - 1];
+    }
+    if (state.activeLayer === 'screens' && state.screens.length > 0) {
+      return state.screens[state.screens.length - 1];
     }
     const activeTabState = state.tabs[state.activeTab];
     return activeTabState.stack[activeTabState.stack.length - 1];

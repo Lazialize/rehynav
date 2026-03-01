@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { parseRoutePatterns } from './path-params.js';
 import { navigationReducer } from './reducer.js';
 import { createInitialState } from './state.js';
+import type { NavigationState } from './types.js';
 import { stateToUrl, urlToState } from './url.js';
 
 let idCounter = 0;
@@ -238,5 +239,77 @@ describe('urlToState with routePatterns', () => {
     expect(state.tabs.home.stack).toHaveLength(2);
     expect(state.tabs.home.stack[1].route).toBe('home/post-detail/:postId');
     expect(state.tabs.home.stack[1].params).toEqual({ postId: '42' });
+  });
+});
+
+describe('stateToUrl with screen layer', () => {
+  it('returns screen route URL when activeLayer is screens', () => {
+    const state: NavigationState = {
+      tabs: {
+        home: {
+          name: 'home',
+          stack: [{ id: 'h1', route: 'home', params: {}, timestamp: 1000 }],
+          hasBeenActive: true,
+        },
+      },
+      activeTab: 'home',
+      tabOrder: ['home'],
+      overlays: [],
+      badges: {},
+      screens: [{ id: 's1', route: 'login', params: {}, timestamp: 1000 }],
+      activeLayer: 'screens',
+    };
+    expect(stateToUrl(state, '/')).toBe('/login');
+  });
+
+  it('returns tab route URL when activeLayer is tabs', () => {
+    const state: NavigationState = {
+      tabs: {
+        home: {
+          name: 'home',
+          stack: [{ id: 'h1', route: 'home', params: {}, timestamp: 1000 }],
+          hasBeenActive: true,
+        },
+      },
+      activeTab: 'home',
+      tabOrder: ['home'],
+      overlays: [],
+      badges: {},
+      screens: [],
+      activeLayer: 'tabs',
+    };
+    expect(stateToUrl(state, '/')).toBe('/home');
+  });
+});
+
+describe('urlToState with screen layer', () => {
+  it('creates state with screen layer for screen route URL', () => {
+    let counter = 0;
+    const createIdLocal = () => `id-${++counter}`;
+    const state = urlToState(
+      '/login',
+      { tabs: ['home'], initialTab: 'home', initialScreen: 'login', screenNames: ['login'] },
+      '/',
+      createIdLocal,
+      () => 1000,
+    );
+    expect(state.activeLayer).toBe('screens');
+    expect(state.screens).toHaveLength(1);
+    expect(state.screens[0].route).toBe('login');
+  });
+
+  it('creates state with screen stack for deep screen route', () => {
+    let counter = 0;
+    const createIdLocal = () => `id-${++counter}`;
+    const state = urlToState(
+      '/login/signup',
+      { tabs: ['home'], initialTab: 'home', initialScreen: 'login', screenNames: ['login'] },
+      '/',
+      createIdLocal,
+      () => 1000,
+    );
+    expect(state.activeLayer).toBe('screens');
+    expect(state.screens).toHaveLength(2);
+    expect(state.screens[1].route).toBe('login/signup');
   });
 });
