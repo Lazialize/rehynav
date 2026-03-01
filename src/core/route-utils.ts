@@ -8,6 +8,10 @@ export function getCurrentRouteInfo(state: NavigationState): RouteInfo {
     const topOverlay = state.overlays[state.overlays.length - 1];
     return { route: topOverlay.route, params: topOverlay.params };
   }
+  if (state.activeLayer === 'screens' && state.screens.length > 0) {
+    const topScreen = state.screens[state.screens.length - 1];
+    return { route: topScreen.route, params: topScreen.params };
+  }
   const activeTab = state.tabs[state.activeTab];
   return { route: activeTab.stack.at(-1)!.route, params: activeTab.stack.at(-1)!.params };
 }
@@ -20,6 +24,17 @@ export function getCurrentRouteInfo(state: NavigationState): RouteInfo {
 export function resolveTabForRoute(route: string, tabOrder: string[]): string | null {
   const firstSegment = route.split('/')[0];
   return tabOrder.includes(firstSegment) ? firstSegment : null;
+}
+
+/**
+ * Resolves which screen a route belongs to based on its first path segment.
+ * "login/signup" -> "login"
+ * "login" -> "login"
+ * Returns null if the route doesn't match any screen name.
+ */
+export function resolveScreenForRoute(route: string, screenNames: string[]): string | null {
+  const firstSegment = route.split('/')[0];
+  return screenNames.includes(firstSegment) ? firstSegment : null;
 }
 
 /**

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { findClosestMatch, resolveTabForRoute } from './route-utils.js';
+import {
+  findClosestMatch,
+  getCurrentRouteInfo,
+  resolveScreenForRoute,
+  resolveTabForRoute,
+} from './route-utils.js';
+import type { NavigationState } from './types.js';
 
 describe('resolveTabForRoute', () => {
   const tabOrder = ['home', 'search', 'profile'];
@@ -56,5 +62,65 @@ describe('findClosestMatch', () => {
   it('finds the closest match among multiple candidates', () => {
     // "hom" is closer to "home" (distance 1) than to "home/detail" (distance 8)
     expect(findClosestMatch('hom', candidates)).toBe('home');
+  });
+});
+
+describe('getCurrentRouteInfo with screen layer', () => {
+  it('returns top screen entry when activeLayer is screens', () => {
+    const state: NavigationState = {
+      tabs: {
+        home: {
+          name: 'home',
+          stack: [{ id: 'h1', route: 'home', params: {}, timestamp: 1000 }],
+          hasBeenActive: true,
+        },
+      },
+      activeTab: 'home',
+      tabOrder: ['home'],
+      overlays: [],
+      badges: {},
+      screens: [
+        { id: 's1', route: 'login', params: {}, timestamp: 1000 },
+        { id: 's2', route: 'login/signup', params: { from: 'login' }, timestamp: 2000 },
+      ],
+      activeLayer: 'screens',
+    };
+
+    const info = getCurrentRouteInfo(state);
+    expect(info.route).toBe('login/signup');
+    expect(info.params).toEqual({ from: 'login' });
+  });
+
+  it('overlay takes priority over screen layer', () => {
+    const state: NavigationState = {
+      tabs: {
+        home: {
+          name: 'home',
+          stack: [{ id: 'h1', route: 'home', params: {}, timestamp: 1000 }],
+          hasBeenActive: true,
+        },
+      },
+      activeTab: 'home',
+      tabOrder: ['home'],
+      overlays: [{ id: 'o1', route: 'share', params: {}, timestamp: 3000 }],
+      badges: {},
+      screens: [{ id: 's1', route: 'login', params: {}, timestamp: 1000 }],
+      activeLayer: 'screens',
+    };
+
+    const info = getCurrentRouteInfo(state);
+    expect(info.route).toBe('share');
+  });
+});
+
+describe('resolveScreenForRoute', () => {
+  it('resolves screen name from route', () => {
+    expect(resolveScreenForRoute('login', ['login', 'onboarding'])).toBe('login');
+    expect(resolveScreenForRoute('login/signup', ['login'])).toBe('login');
+  });
+
+  it('returns null for non-screen routes', () => {
+    expect(resolveScreenForRoute('home', ['login'])).toBeNull();
+    expect(resolveScreenForRoute('home/detail', ['login'])).toBeNull();
   });
 });
