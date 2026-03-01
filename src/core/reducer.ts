@@ -338,6 +338,7 @@ export function navigationReducer(
       };
       return {
         ...state,
+        activeLayer: 'screens',
         screens: [...state.screens, newEntry],
       };
     }

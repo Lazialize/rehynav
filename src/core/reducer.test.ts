@@ -682,6 +682,22 @@ describe('navigationReducer', () => {
       });
       expect(next.activeLayer).toBe('screens');
     });
+
+    it('sets activeLayer to screens when dispatched from tabs layer', () => {
+      const state = makeState();
+      expect(state.activeLayer).toBe('tabs');
+
+      const next = dispatch(state, {
+        type: 'PUSH_SCREEN',
+        route: 'login',
+        params: {},
+        id: 'screen-from-tabs-1',
+        timestamp: 2000,
+      });
+
+      expect(next.screens).toHaveLength(1);
+      expect(next.activeLayer).toBe('screens');
+    });
   });
 
   describe('POP_SCREEN', () => {
