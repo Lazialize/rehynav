@@ -43,6 +43,7 @@ describe('HistorySyncManager', () => {
 
   afterEach(() => {
     manager.stop();
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
@@ -651,6 +652,179 @@ describe('HistorySyncManager', () => {
 
       const state = store.getState();
       expect(state.activeTab).toBe('profile');
+    });
+  });
+
+  describe('goBackSilently safety', () => {
+    it('should reset isSyncing via timeout if popstate never fires', () => {
+      vi.useFakeTimers();
+      manager.start();
+
+      // Push to increase depth so POP triggers goBackSilently
+      store.dispatch({
+        type: 'PUSH',
+        route: 'home/detail',
+        params: {},
+        id: createId(),
+        timestamp: Date.now(),
+      });
+
+      // POP sets isSyncing=true via goBackSilently, but history.go is mocked
+      // so popstate never fires → isSyncing would be stuck without timeout
+      store.dispatch({ type: 'POP' });
+
+      // Before timeout: isSyncing should still be true
+      const dispatchSpy = vi.spyOn(store, 'dispatch');
+      dispatchSpy.mockClear();
+
+      // Advance past the safety timeout
+      vi.advanceTimersByTime(200);
+
+      // Now isSyncing should be reset — verify by dispatching a store change
+      // and confirming syncHistoryFromStateChange runs (replaceState called)
+      replaceStateSpy.mockClear();
+      store.dispatch({
+        type: 'PUSH',
+        route: 'home/other',
+        params: {},
+        id: createId(),
+        timestamp: Date.now(),
+      });
+
+      // If isSyncing was reset, the store subscription should have called pushState
+      expect(pushStateSpy).toHaveBeenCalled();
+    });
+
+    it('should clear timeout when popstate fires normally', () => {
+      vi.useFakeTimers();
+      manager.start();
+
+      store.dispatch({
+        type: 'PUSH',
+        route: 'home/detail',
+        params: {},
+        id: createId(),
+        timestamp: Date.now(),
+      });
+
+      store.dispatch({ type: 'POP' });
+
+      // Simulate the popstate firing (normal case)
+      const popstateEvent = new PopStateEvent('popstate', { state: null });
+      window.dispatchEvent(popstateEvent);
+
+      // isSyncing should be false now — verify via pushState on next dispatch
+      pushStateSpy.mockClear();
+      store.dispatch({
+        type: 'PUSH',
+        route: 'home/another',
+        params: {},
+        id: createId(),
+        timestamp: Date.now(),
+      });
+      expect(pushStateSpy).toHaveBeenCalled();
+
+      // Advancing timer should not cause issues (timeout was cleared)
+      vi.advanceTimersByTime(200);
+    });
+
+    it('should reset isSyncing and remove dangling listener on stop()', () => {
+      manager.start();
+
+      // Push then pop to trigger goBackSilently
+      store.dispatch({
+        type: 'PUSH',
+        route: 'home/detail',
+        params: {},
+        id: createId(),
+        timestamp: Date.now(),
+      });
+      store.dispatch({ type: 'POP' });
+
+      // stop() while goBackSilently is pending
+      manager.stop();
+
+      // Re-create and start a new manager — it should work normally
+      manager = new HistorySyncManager(store, '/');
+      pushStateSpy.mockClear();
+      replaceStateSpy.mockClear();
+
+      manager.start();
+
+      store.dispatch({
+        type: 'PUSH',
+        route: 'home/new',
+        params: {},
+        id: createId(),
+        timestamp: Date.now(),
+      });
+
+      // Should sync normally (pushState called)
+      expect(pushStateSpy).toHaveBeenCalled();
+    });
+
+    it('stop() should reset isSyncing so subsequent start() works', () => {
+      manager.start();
+
+      // Trigger goBackSilently
+      store.dispatch({
+        type: 'PUSH',
+        route: 'home/detail',
+        params: {},
+        id: createId(),
+        timestamp: Date.now(),
+      });
+      store.dispatch({ type: 'POP' });
+
+      // At this point isSyncing is true (go is mocked, no real popstate)
+      // stop() should reset isSyncing
+      manager.stop();
+
+      // start() again on the same manager
+      pushStateSpy.mockClear();
+      replaceStateSpy.mockClear();
+      manager.start();
+
+      store.dispatch({
+        type: 'PUSH',
+        route: 'home/new',
+        params: {},
+        id: createId(),
+        timestamp: Date.now(),
+      });
+
+      // If isSyncing was properly reset by stop(), this should work
+      expect(pushStateSpy).toHaveBeenCalled();
+    });
+
+    it('should use AbortController to clean up listener on stop()', () => {
+      manager.start();
+
+      store.dispatch({
+        type: 'PUSH',
+        route: 'home/detail',
+        params: {},
+        id: createId(),
+        timestamp: Date.now(),
+      });
+
+      const removeListenerSpy = vi.spyOn(window, 'removeEventListener');
+      removeListenerSpy.mockClear();
+
+      store.dispatch({ type: 'POP' });
+
+      // stop() should abort the pending goBackSilently listener
+      manager.stop();
+
+      // After stop, a stale popstate should NOT call replaceState
+      replaceStateSpy.mockClear();
+      const stalePopstate = new PopStateEvent('popstate', { state: null });
+      window.dispatchEvent(stalePopstate);
+
+      // The goBackSilently handler should NOT have run (was aborted)
+      // replaceState should not be called by the stale handler
+      // (The start() replaceState was already called, so check no NEW calls)
+      expect(replaceStateSpy).not.toHaveBeenCalled();
     });
   });
 
