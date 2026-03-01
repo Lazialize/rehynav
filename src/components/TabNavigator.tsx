@@ -4,6 +4,7 @@ import { useTab } from '../hooks/useTab.js';
 import type { TabBarProps, TabInfo, TabNavigatorProps } from '../types/props.js';
 import { OverlayRenderer } from './OverlayRenderer.js';
 import { StackRenderer } from './StackRenderer.js';
+import { SuspenseFallbackContext } from './SuspenseFallbackContext.js';
 
 function DefaultTabBar({ tabs, onTabPress }: TabBarProps): React.ReactElement {
   return (
@@ -95,6 +96,7 @@ export function TabNavigator({
   preserveState = true,
   lazy = true,
   maxStackDepth = 10,
+  suspenseFallback = null,
 }: TabNavigatorProps): React.ReactElement {
   const { activeTab, tabs, switchTab } = useTab();
   const badges = useNavigationSelector((s) => s.badges);
@@ -114,11 +116,13 @@ export function TabNavigator({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {tabBarPosition === 'top' && tabBarElement}
-      <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-        <TabContent preserveState={preserveState} lazy={lazy} maxStackDepth={maxStackDepth} />
-      </div>
+      <SuspenseFallbackContext.Provider value={suspenseFallback}>
+        <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+          <TabContent preserveState={preserveState} lazy={lazy} maxStackDepth={maxStackDepth} />
+        </div>
+        <OverlayRenderer />
+      </SuspenseFallbackContext.Provider>
       {tabBarPosition === 'bottom' && tabBarElement}
-      <OverlayRenderer />
     </div>
   );
 }
