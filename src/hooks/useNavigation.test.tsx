@@ -1,7 +1,10 @@
 import { act, renderHook } from '@testing-library/react';
 import type React from 'react';
 import { describe, expect, it } from 'vitest';
-import { createNavigationGuardRegistry } from '../core/navigation-guard.js';
+import {
+  createNavigationGuardRegistry,
+  type NavigationGuardRegistry,
+} from '../core/navigation-guard.js';
 import { navigationReducer } from '../core/reducer.js';
 import { createInitialState } from '../core/state.js';
 import type { NavigationAction, NavigationState } from '../core/types.js';
@@ -38,14 +41,12 @@ function testCreateId(): string {
   return `test-id-${++idCounter}`;
 }
 
-function createWrapper(store: NavigationStoreForHooks) {
-  const guardRegistry = createNavigationGuardRegistry();
+function createWrapper(store: NavigationStoreForHooks, guardRegistry?: NavigationGuardRegistry) {
+  const registry = guardRegistry ?? createNavigationGuardRegistry();
   return function Wrapper({ children }: { children: React.ReactNode }) {
     return (
       <NavigationStoreContext.Provider value={store}>
-        <GuardRegistryContext.Provider value={guardRegistry}>
-          {children}
-        </GuardRegistryContext.Provider>
+        <GuardRegistryContext.Provider value={registry}>{children}</GuardRegistryContext.Provider>
       </NavigationStoreContext.Provider>
     );
   };
@@ -450,6 +451,63 @@ describe('useNavigation', () => {
       });
 
       expect(store.getState().screens).toHaveLength(1);
+    });
+
+    it('replace is blocked by guard on screens layer', () => {
+      const state = createInitialState(
+        {
+          tabs: ['home', 'search'],
+          initialTab: 'home',
+          initialScreen: 'login',
+          screenNames: ['login'],
+        },
+        testCreateId,
+        () => 1000,
+      );
+      const store = createTestStore(state);
+      const guardRegistry = createNavigationGuardRegistry();
+      guardRegistry.register('block-replace', () => false);
+      const wrapper = createWrapper(store, guardRegistry);
+
+      const { result } = renderHook(() => useNavigation(), { wrapper });
+
+      act(() => {
+        result.current.replace('login/verify');
+      });
+
+      expect(store.getState().screens).toHaveLength(1);
+      expect(store.getState().screens[0].route).toBe('login');
+    });
+
+    it('popToRoot is blocked by guard on screens layer', () => {
+      const state = createInitialState(
+        {
+          tabs: ['home', 'search'],
+          initialTab: 'home',
+          initialScreen: 'login',
+          screenNames: ['login'],
+        },
+        testCreateId,
+        () => 1000,
+      );
+      const store = createTestStore(state);
+      const guardRegistry = createNavigationGuardRegistry();
+      guardRegistry.register('block-back', (_from, _to, direction) => direction !== 'back');
+      const wrapper = createWrapper(store, guardRegistry);
+
+      const { result } = renderHook(() => useNavigation(), { wrapper });
+
+      act(() => {
+        result.current.push('login/signup');
+        result.current.push('login/verify');
+      });
+      expect(store.getState().screens).toHaveLength(3);
+
+      act(() => {
+        result.current.popToRoot();
+      });
+
+      expect(store.getState().screens).toHaveLength(3);
     });
 
     it('canGoBack returns true when screen stack has more than one entry', () => {
