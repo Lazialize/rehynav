@@ -48,6 +48,9 @@ jobs:
   prerelease:
     needs: ci
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -76,6 +79,4 @@ jobs:
         run: pnpm build
       - name: Publish pre-release
         if: steps.check.outputs.has_changesets == 'true'
-        run: pnpm publish --tag next --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: pnpm publish --tag next --no-git-checks --provenance
