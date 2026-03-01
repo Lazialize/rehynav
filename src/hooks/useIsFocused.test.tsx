@@ -243,4 +243,91 @@ describe('useIsFocused', () => {
       renderHook(() => useIsFocused());
     }).toThrow('useNavigationStore must be used within NavigationProvider');
   });
+
+  describe('screen layer', () => {
+    it('returns true for top screen entry when activeLayer is screens', () => {
+      const state = createInitialState(
+        { tabs: ['home'], initialTab: 'home', initialScreen: 'login', screenNames: ['login'] },
+        testCreateId,
+        () => 1000,
+      );
+      const store = createTestStore(state);
+      const topScreenId = store.getState().screens[0].id;
+      const wrapper = createWrapper(store, { route: 'login', params: {}, entryId: topScreenId });
+
+      const { result } = renderHook(() => useIsFocused(), { wrapper });
+
+      expect(result.current).toBe(true);
+    });
+
+    it('returns false for non-top screen entry when activeLayer is screens', () => {
+      const state = createInitialState(
+        { tabs: ['home'], initialTab: 'home', initialScreen: 'login', screenNames: ['login'] },
+        testCreateId,
+        () => 1000,
+      );
+      const store = createTestStore(state);
+      const firstScreenId = store.getState().screens[0].id;
+
+      // Push a second screen on top
+      act(() => {
+        store.dispatch({
+          type: 'PUSH_SCREEN',
+          route: 'signup',
+          params: {},
+          id: 'screen-2',
+          timestamp: 2000,
+        });
+      });
+
+      const wrapper = createWrapper(store, { route: 'login', params: {}, entryId: firstScreenId });
+
+      const { result } = renderHook(() => useIsFocused(), { wrapper });
+
+      expect(result.current).toBe(false);
+    });
+
+    it('returns false for screen entry when overlay is open', () => {
+      const state = createInitialState(
+        { tabs: ['home'], initialTab: 'home', initialScreen: 'login', screenNames: ['login'] },
+        testCreateId,
+        () => 1000,
+      );
+      const store = createTestStore(state);
+      const topScreenId = store.getState().screens[0].id;
+
+      // Open an overlay
+      act(() => {
+        store.dispatch({
+          type: 'OPEN_OVERLAY',
+          route: 'dialog',
+          params: {},
+          id: 'overlay-1',
+          timestamp: 2000,
+        });
+      });
+
+      const wrapper = createWrapper(store, { route: 'login', params: {}, entryId: topScreenId });
+
+      const { result } = renderHook(() => useIsFocused(), { wrapper });
+
+      expect(result.current).toBe(false);
+    });
+
+    it('returns false for tab entry when screen layer is active', () => {
+      const state = createInitialState(
+        { tabs: ['home'], initialTab: 'home', initialScreen: 'login', screenNames: ['login'] },
+        testCreateId,
+        () => 1000,
+      );
+      const store = createTestStore(state);
+      const tabEntryId = store.getState().tabs.home.stack[0].id;
+      const wrapper = createWrapper(store, { route: 'home', params: {}, entryId: tabEntryId });
+
+      const { result } = renderHook(() => useIsFocused(), { wrapper });
+
+      // Tab entries should not be focused when screen layer is active
+      expect(result.current).toBe(false);
+    });
+  });
 });

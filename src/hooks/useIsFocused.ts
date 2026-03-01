@@ -15,8 +15,17 @@ export function useIsFocused(): boolean {
       return overlayIndex === state.overlays.length - 1;
     }
 
-    // Stack screen: active tab, top of stack, no overlays
+    // If overlays are open, nothing underneath is focused
     if (state.overlays.length > 0) return false;
+
+    // Screen layer: top of screen stack is focused
+    if (state.activeLayer === 'screens') {
+      if (state.screens.length === 0) return false;
+      const topScreen = state.screens[state.screens.length - 1];
+      return topScreen.id === entryId;
+    }
+
+    // Tab layer: active tab, top of stack
     const activeTabState = state.tabs[state.activeTab];
     const topEntry = activeTabState.stack[activeTabState.stack.length - 1];
     return topEntry.id === entryId;
