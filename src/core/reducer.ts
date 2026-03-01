@@ -330,6 +330,11 @@ export function navigationReducer(
     }
 
     case 'PUSH_SCREEN': {
+      // NOTE: Unlike NAVIGATE_TO_SCREEN, this does not clear overlays.
+      // Currently useNavigation only dispatches PUSH_SCREEN when activeLayer
+      // is already 'screens', so stale overlays are not a concern. If a
+      // tabs→screens PUSH_SCREEN path is added in the future, consider
+      // clearing overlays here as well.
       const newEntry: StackEntry = {
         id: action.id,
         route: action.route,
@@ -338,6 +343,7 @@ export function navigationReducer(
       };
       return {
         ...state,
+        activeLayer: 'screens',
         screens: [...state.screens, newEntry],
       };
     }
