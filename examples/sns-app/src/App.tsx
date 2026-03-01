@@ -1,5 +1,5 @@
 import type { ErrorFallbackProps, TabBarProps } from 'rehynav';
-import { createRouter, overlay, screen, stack, TabNavigator, tab } from 'rehynav';
+import { createRouter, overlay, screen, stack, tab } from 'rehynav';
 import './App.css';
 
 import { NewPostModal } from './overlays/NewPostModal';
@@ -13,31 +13,6 @@ import { SettingsScreen } from './screens/SettingsScreen';
 import { SignupScreen } from './screens/SignupScreen';
 
 const postDetail = stack('post-detail/:postId', PostDetailScreen);
-
-const router = createRouter({
-  screens: [screen('login', LoginScreen, [stack('signup', SignupScreen)])],
-  tabs: [
-    tab('home', HomeScreen, [postDetail]),
-    tab('search', SearchScreen, [postDetail]),
-    tab('profile', ProfileScreen, [stack('settings', SettingsScreen)]),
-  ],
-  overlays: [overlay('new-post', NewPostModal), overlay('share', ShareSheet)],
-  initialTab: 'home',
-  initialScreen: 'login',
-});
-
-export const {
-  NavigationProvider,
-  useNavigation,
-  useRoute,
-  useTab,
-  useOverlay,
-  useBeforeNavigate,
-  useBackHandler,
-  useFocusEffect,
-  useIsFocused,
-  useScrollRestoration,
-} = router;
 
 function AppTabBar({ tabs, onTabPress }: TabBarProps) {
   const icons: Record<string, string> = {
@@ -79,10 +54,17 @@ function AppErrorFallback({ error, route, retry }: ErrorFallbackProps) {
   );
 }
 
-export function App() {
-  return (
-    <NavigationProvider urlSync>
-      <TabNavigator tabBar={AppTabBar} errorFallback={AppErrorFallback} />
-    </NavigationProvider>
-  );
-}
+export const router = createRouter({
+  screens: [screen('login', LoginScreen, [stack('signup', SignupScreen)])],
+  tabs: [
+    tab('home', HomeScreen, [postDetail]),
+    tab('search', SearchScreen, [postDetail]),
+    tab('profile', ProfileScreen, [stack('settings', SettingsScreen)]),
+  ],
+  overlays: [overlay('new-post', NewPostModal), overlay('share', ShareSheet)],
+  initialTab: 'home',
+  initialScreen: 'login',
+  tabBar: AppTabBar,
+  errorFallback: AppErrorFallback,
+  urlSync: true,
+});

@@ -1,4 +1,4 @@
-import { useNavigation } from '../App';
+import { useNavigation } from 'rehynav';
 
 export function SignupScreen() {
   const navigation = useNavigation();

@@ -1,6 +1,5 @@
 import { useRef, useState } from 'react';
-import { Link } from 'rehynav';
-import { useIsFocused, useScrollRestoration } from '../App';
+import { Link, useIsFocused, useScrollRestoration } from 'rehynav';
 import { posts } from '../data';
 
 export function SearchScreen() {

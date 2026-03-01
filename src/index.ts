@@ -3,6 +3,8 @@
 // Components
 export { Link } from './components/Link.js';
 export type { PreloadEntry } from './components/PreloadContext.js';
+export type { RouterProviderProps } from './components/RouterProvider.js';
+export { RouterProvider } from './components/RouterProvider.js';
 export { ScreenRenderer } from './components/ScreenRenderer.js';
 export { TabNavigator } from './components/TabNavigator.js';
 
@@ -45,7 +47,6 @@ export { HistorySyncManager } from './sync/history-sync.js';
 // Types
 export type {
   ErrorFallbackProps,
-  NavigationProviderProps,
   ScreenComponentProps,
   ScreenOptions,
   TabBarProps,

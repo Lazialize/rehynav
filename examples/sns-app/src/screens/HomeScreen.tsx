@@ -1,6 +1,5 @@
 import { useRef } from 'react';
-import { Link, useNavigation, useOverlay } from 'rehynav';
-import { useScrollRestoration } from '../App';
+import { Link, useNavigation, useOverlay, useScrollRestoration } from 'rehynav';
 import { posts } from '../data';
 
 export function HomeScreen() {

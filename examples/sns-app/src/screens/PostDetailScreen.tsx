@@ -1,7 +1,6 @@
 import { useCallback } from 'react';
 import type { ScreenComponentProps } from 'rehynav';
-import { useNavigation, useOverlay } from 'rehynav';
-import { useFocusEffect } from '../App';
+import { useFocusEffect, useNavigation, useOverlay } from 'rehynav';
 import { getPost } from '../data';
 
 // ScreenComponentProps gives you typed `params` based on route definition

@@ -1,36 +1,9 @@
 import type React from 'react';
-import { createElement, type RefObject, useEffect, useRef } from 'react';
-import { createId } from './core/id.js';
-import { createNavigationGuardRegistry } from './core/navigation-guard.js';
-import { parseRoutePatterns } from './core/path-params.js';
-import { createInitialState } from './core/state.js';
-import type { NavigationDirection, NavigationState, RouteInfo } from './core/types.js';
-import { urlToState } from './core/url.js';
-import {
-  GuardRegistryContext,
-  NavigationStoreContext,
-  RoutePatternsContext,
-  ScreenRegistryContext,
-  type ScreenRegistryForHooks,
-} from './hooks/context.js';
-import { useBackHandler } from './hooks/useBackHandler.js';
-import { useBeforeNavigate } from './hooks/useBeforeNavigate.js';
-import { useFocusEffect } from './hooks/useFocusEffect.js';
-import { useIsFocused } from './hooks/useIsFocused.js';
-import type { NavigationActions } from './hooks/useNavigation.js';
-import { useNavigation } from './hooks/useNavigation.js';
-import type { OverlayActions } from './hooks/useOverlay.js';
-import { useOverlay } from './hooks/useOverlay.js';
-import type { RouteInfoResult } from './hooks/useRoute.js';
-import { useRoute } from './hooks/useRoute.js';
-import { useScrollRestoration } from './hooks/useScrollRestoration.js';
-import type { TabActions } from './hooks/useTab.js';
-import { useTab } from './hooks/useTab.js';
+import { parseRoutePatterns, type RoutePattern } from './core/path-params.js';
+import type { NavigationState } from './core/types.js';
 import type { OverlayDef, ScreenDef, TabDef } from './route-helpers.js';
-import { createNavigationStore } from './store/navigation-store.js';
-import { createScreenRegistry, type ScreenRegistration } from './store/screen-registry.js';
-import { HistorySyncManager } from './sync/history-sync.js';
-import type { NavigationProviderProps } from './types/props.js';
+import type { ScreenRegistration } from './store/screen-registry.js';
+import type { ErrorFallbackProps, TabBarProps } from './types/props.js';
 
 export interface RouterConfig<
   TTabs extends TabDef[] = TabDef[],
@@ -42,21 +15,34 @@ export interface RouterConfig<
   screens?: [...TScreens];
   initialTab: TTabs[number]['name'];
   initialScreen?: string;
+
+  // Provider options (moved from NavigationProviderProps)
+  urlSync?: boolean;
+  basePath?: string;
+  onStateChange?: (state: NavigationState) => void;
+  initialState?: NavigationState;
+
+  // TabNavigator options (moved from TabNavigatorProps)
+  tabBar?: React.ComponentType<TabBarProps>;
+  tabBarPosition?: 'top' | 'bottom';
+  preserveState?: boolean;
+  lazy?: boolean;
+  maxStackDepth?: number;
+  suspenseFallback?: React.ReactNode;
+  errorFallback?: React.ComponentType<ErrorFallbackProps>;
 }
 
 export interface RouterInstance {
-  NavigationProvider: (props: NavigationProviderProps) => React.ReactElement;
-  useNavigation: () => NavigationActions;
-  useRoute: () => RouteInfoResult;
-  useTab: () => TabActions;
-  useOverlay: () => OverlayActions;
-  useBeforeNavigate: (
-    guard: (from: RouteInfo, to: RouteInfo, direction: NavigationDirection) => boolean,
-  ) => void;
-  useBackHandler: (handler: () => boolean) => void;
-  useFocusEffect: (callback: () => undefined | (() => void)) => void;
-  useIsFocused: () => boolean;
-  useScrollRestoration: (ref: RefObject<HTMLElement | null>) => void;
+  /** @internal — consumed by RouterProvider */
+  _internal: {
+    tabNames: string[];
+    screenNames: string[];
+    registrations: ScreenRegistration[];
+    routePatterns: Map<string, RoutePattern> | undefined;
+    initialTab: string;
+    initialScreen: string | undefined;
+    config: RouterConfig;
+  };
 }
 
 export function createRouter<
@@ -69,97 +55,16 @@ export function createRouter<
   const initialScreen = config.initialScreen as string | undefined;
   const routePatterns = routes.length > 0 ? parseRoutePatterns(routes) : undefined;
 
-  function NavigationProvider(props: NavigationProviderProps): React.ReactElement {
-    const { children, urlSync = false, basePath = '/', onStateChange, initialState } = props;
-
-    const storeRef = useRef<ReturnType<typeof createNavigationStore> | null>(null);
-    if (storeRef.current === null) {
-      let resolvedInitialState: NavigationState;
-      if (initialState) {
-        resolvedInitialState = initialState;
-      } else if (urlSync && typeof window !== 'undefined') {
-        resolvedInitialState = urlToState(
-          window.location.pathname + window.location.search,
-          { tabs: tabNames, initialTab, initialScreen, screenNames },
-          basePath,
-          createId,
-          Date.now,
-          routePatterns,
-        );
-      } else {
-        resolvedInitialState = createInitialState(
-          { tabs: tabNames, initialTab, initialScreen, screenNames },
-          createId,
-          Date.now,
-        );
-      }
-      storeRef.current = createNavigationStore(resolvedInitialState);
-    }
-    const store = storeRef.current;
-
-    const screenRegistryRef = useRef<ScreenRegistryForHooks | null>(null);
-    if (screenRegistryRef.current === null) {
-      const registry = createScreenRegistry();
-      for (const reg of registrations) {
-        registry.register(reg);
-      }
-      screenRegistryRef.current = registry as unknown as ScreenRegistryForHooks;
-    }
-    const screenRegistry = screenRegistryRef.current;
-
-    const guardRegistryRef = useRef<ReturnType<typeof createNavigationGuardRegistry> | null>(null);
-    if (guardRegistryRef.current === null) {
-      guardRegistryRef.current = createNavigationGuardRegistry();
-    }
-    const guardRegistry = guardRegistryRef.current;
-
-    useEffect(() => {
-      if (!onStateChange) return;
-      return store.subscribe(() => {
-        onStateChange(store.getState());
-      });
-    }, [store, onStateChange]);
-
-    useEffect(() => {
-      if (!urlSync) return;
-      const syncManager = new HistorySyncManager(store, basePath, routePatterns, {
-        tabs: tabNames,
-        initialTab,
-        createId,
-        now: Date.now,
-        initialScreen,
-        screenNames,
-      });
-      syncManager.start();
-      return () => syncManager.stop();
-    }, [store, urlSync, basePath]);
-
-    return createElement(
-      NavigationStoreContext.Provider,
-      { value: store },
-      createElement(
-        ScreenRegistryContext.Provider,
-        { value: screenRegistry },
-        createElement(
-          GuardRegistryContext.Provider,
-          { value: guardRegistry },
-          createElement(RoutePatternsContext.Provider, { value: routePatterns ?? null }, children),
-        ),
-      ),
-    );
-  }
-
   return {
-    NavigationProvider,
-    useNavigation,
-    useRoute,
-    useTab,
-    useOverlay,
-    useBeforeNavigate,
-    useBackHandler,
-    useFocusEffect,
-    useIsFocused,
-    useScrollRestoration,
+    _internal: {
+      tabNames,
+      screenNames,
+      registrations,
+      routePatterns,
+      initialTab,
+      initialScreen,
+      config: config as unknown as RouterConfig,
+    },
   };
 }
 
