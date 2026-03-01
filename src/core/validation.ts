@@ -15,13 +15,34 @@ export function validateStackRoutes(stacks: Record<string, unknown>, tabs: strin
 export function validateSerializable(params: Record<string, unknown>, context: string): void {
   if (process.env.NODE_ENV === 'production') return;
 
-  for (const [key, value] of Object.entries(params)) {
-    if (typeof value === 'function') {
+  function check(value: unknown, path: string): void {
+    if (value === null || value === undefined) return;
+
+    const type = typeof value;
+    if (type === 'function' || type === 'symbol') {
       console.error(
-        `[rehynav] Non-serializable value in ${context} params.${key}: function. ` +
+        `[rehynav] Non-serializable value in ${context} ${path}: ${type}. ` +
           `Route params must be serializable (string, number, boolean, null, arrays, plain objects). ` +
           `Use the action string pattern for callbacks. See docs for recommended patterns.`,
       );
+      return;
     }
+
+    if (Array.isArray(value)) {
+      for (let i = 0; i < value.length; i++) {
+        check(value[i], `${path}[${i}]`);
+      }
+      return;
+    }
+
+    if (type === 'object') {
+      for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
+        check(val, `${path}.${key}`);
+      }
+    }
+  }
+
+  for (const [key, value] of Object.entries(params)) {
+    check(value, `params.${key}`);
   }
 }

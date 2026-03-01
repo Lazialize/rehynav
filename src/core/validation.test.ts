@@ -78,4 +78,62 @@ describe('validateSerializable', () => {
 
     expect(errorSpy).not.toHaveBeenCalled();
   });
+
+  it('logs error for function nested inside object', () => {
+    process.env.NODE_ENV = 'development';
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    validateSerializable({ data: { onComplete: () => {} } }, 'push("test")');
+
+    expect(errorSpy).toHaveBeenCalledOnce();
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('params.data.onComplete'));
+  });
+
+  it('logs error for function nested inside array', () => {
+    process.env.NODE_ENV = 'development';
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    validateSerializable({ items: [1, () => {}, 'ok'] }, 'push("test")');
+
+    expect(errorSpy).toHaveBeenCalledOnce();
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('params.items[1]'));
+  });
+
+  it('logs error for deeply nested non-serializable value', () => {
+    process.env.NODE_ENV = 'development';
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    validateSerializable({ a: { b: { c: () => {} } } }, 'push("test")');
+
+    expect(errorSpy).toHaveBeenCalledOnce();
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('params.a.b.c'));
+  });
+
+  it('logs error for Symbol values', () => {
+    process.env.NODE_ENV = 'development';
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    validateSerializable({ id: Symbol('test') } as Record<string, unknown>, 'push("test")');
+
+    expect(errorSpy).toHaveBeenCalledOnce();
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('params.id'));
+  });
+
+  it('logs multiple errors for multiple non-serializable values', () => {
+    process.env.NODE_ENV = 'development';
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    validateSerializable({ fn: () => {}, nested: { fn2: () => {} } }, 'push("test")');
+
+    expect(errorSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not log for deeply nested serializable values', () => {
+    process.env.NODE_ENV = 'development';
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    validateSerializable({ a: { b: { c: 'hello', d: [1, 2, { e: true }] } } }, 'push("test")');
+
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
 });
