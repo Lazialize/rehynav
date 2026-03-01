@@ -86,3 +86,57 @@ describe('createInitialState', () => {
     expect(state.tabs.b.stack[0].timestamp).toBe(150);
   });
 });
+
+describe('createInitialState with screens', () => {
+  it('creates state with empty screens and activeLayer tabs when no initialScreen', () => {
+    let counter = 0;
+    const createId = () => `id-${++counter}`;
+    const state = createInitialState(
+      { tabs: ['home', 'search'], initialTab: 'home' },
+      createId,
+      mockNow,
+    );
+
+    expect(state.screens).toEqual([]);
+    expect(state.activeLayer).toBe('tabs');
+  });
+
+  it('creates state with screen root entry when initialScreen is provided', () => {
+    let counter = 0;
+    const createId = () => `id-${++counter}`;
+    const state = createInitialState(
+      {
+        tabs: ['home', 'search'],
+        initialTab: 'home',
+        initialScreen: 'login',
+        screenNames: ['login'],
+      },
+      createId,
+      mockNow,
+    );
+
+    expect(state.screens).toHaveLength(1);
+    expect(state.screens[0].route).toBe('login');
+    expect(state.activeLayer).toBe('screens');
+  });
+
+  it('still creates all tabs when initialScreen is provided', () => {
+    let counter = 0;
+    const createId = () => `id-${++counter}`;
+    const state = createInitialState(
+      {
+        tabs: ['home', 'search'],
+        initialTab: 'home',
+        initialScreen: 'login',
+        screenNames: ['login'],
+      },
+      createId,
+      mockNow,
+    );
+
+    expect(state.tabOrder).toEqual(['home', 'search']);
+    expect(state.tabs.home).toBeDefined();
+    expect(state.tabs.search).toBeDefined();
+    expect(state.activeTab).toBe('home');
+  });
+});

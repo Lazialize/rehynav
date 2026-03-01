@@ -1,7 +1,12 @@
-import type { NavigationState, TabState } from './types.js';
+import type { NavigationState, StackEntry, TabState } from './types.js';
 
 export function createInitialState(
-  config: { tabs: string[]; initialTab: string },
+  config: {
+    tabs: string[];
+    initialTab: string;
+    initialScreen?: string;
+    screenNames?: string[];
+  },
   createId: () => string,
   now: () => number,
 ): NavigationState {
@@ -21,11 +26,26 @@ export function createInitialState(
     };
   }
 
+  const screens: StackEntry[] = [];
+  let activeLayer: 'screens' | 'tabs' = 'tabs';
+
+  if (config.initialScreen) {
+    screens.push({
+      id: createId(),
+      route: config.initialScreen,
+      params: {},
+      timestamp: now(),
+    });
+    activeLayer = 'screens';
+  }
+
   return {
     tabs,
     activeTab: config.initialTab,
     tabOrder: config.tabs,
     overlays: [],
     badges: {},
+    screens,
+    activeLayer,
   };
 }
