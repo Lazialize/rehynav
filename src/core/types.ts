@@ -55,6 +55,10 @@ export interface NavigationState {
   overlays: OverlayEntry[];
   /** Tab badge values */
   badges: Record<string, string | number | undefined>;
+  /** Screen stack (rendered instead of tabs when activeLayer is 'screens') */
+  screens: StackEntry[];
+  /** Which layer is currently active */
+  activeLayer: 'screens' | 'tabs';
 }
 
 // ---- Navigation Actions ----
@@ -89,7 +93,23 @@ export type NavigationAction =
   | { type: 'GO_BACK' }
   | { type: 'RESTORE_TO_ENTRY'; entryId: string }
   | { type: 'RESET_STATE'; state: NavigationState }
-  | { type: 'SET_BADGE'; tab: string; badge: string | number | undefined };
+  | { type: 'SET_BADGE'; tab: string; badge: string | number | undefined }
+  | {
+      type: 'PUSH_SCREEN';
+      route: string;
+      params: Record<string, Serializable>;
+      id: string;
+      timestamp: number;
+    }
+  | { type: 'POP_SCREEN' }
+  | { type: 'NAVIGATE_TO_TABS'; tab?: string }
+  | {
+      type: 'NAVIGATE_TO_SCREEN';
+      route: string;
+      params: Record<string, Serializable>;
+      id: string;
+      timestamp: number;
+    };
 
 // ---- Navigation Direction ----
 
