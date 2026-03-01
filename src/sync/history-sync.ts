@@ -27,6 +27,8 @@ export class HistorySyncManager {
   private popStateHandler: ((event: PopStateEvent) => void) | null = null;
   private previousState: NavigationState | null = null;
   private isSyncing = false;
+  private goBackAbort: AbortController | null = null;
+  private goBackTimeout: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     store: NavigationStore,
@@ -76,6 +78,8 @@ export class HistorySyncManager {
       this.unsubscribe();
       this.unsubscribe = null;
     }
+    this.cancelPendingGoBack();
+    this.isSyncing = false;
   }
 
   private handlePopState(event: PopStateEvent): void {
@@ -195,15 +199,58 @@ export class HistorySyncManager {
    * Go back in browser history without triggering RESTORE_TO_ENTRY.
    * Sets isSyncing to prevent handlePopState from dispatching,
    * then replaces the resulting history entry with the correct state.
+   *
+   * Uses an AbortController so the listener can be cleaned up by stop(),
+   * and a timeout fallback to reset isSyncing if popstate never fires
+   * (e.g., history.go() delta exceeds available history depth).
    */
   private goBackSilently(delta: number, historyState: HistoryState, url: string): void {
+    // Cancel any previous pending goBackSilently
+    this.cancelPendingGoBack();
+
     this.isSyncing = true;
-    window.history.go(-delta);
+
+    const abort = new AbortController();
+    this.goBackAbort = abort;
+
+    const cleanup = () => {
+      this.goBackAbort = null;
+      if (this.goBackTimeout !== null) {
+        clearTimeout(this.goBackTimeout);
+        this.goBackTimeout = null;
+      }
+    };
+
     const onPopState = () => {
+      if (abort.signal.aborted) return;
       window.history.replaceState(historyState, '', url);
       this.isSyncing = false;
+      cleanup();
     };
-    window.addEventListener('popstate', onPopState, { once: true });
+
+    window.addEventListener('popstate', onPopState, { once: true, signal: abort.signal });
+
+    // Safety timeout: reset isSyncing if popstate never fires
+    this.goBackTimeout = setTimeout(() => {
+      if (!abort.signal.aborted) {
+        abort.abort();
+        this.isSyncing = false;
+        cleanup();
+      }
+    }, 100);
+
+    window.history.go(-delta);
+  }
+
+  private cancelPendingGoBack(): void {
+    if (this.goBackAbort) {
+      this.goBackAbort.abort();
+      this.goBackAbort = null;
+    }
+    if (this.goBackTimeout !== null) {
+      clearTimeout(this.goBackTimeout);
+      this.goBackTimeout = null;
+    }
   }
 
   createHistoryState(state: NavigationState): HistoryState {
