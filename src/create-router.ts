@@ -15,6 +15,8 @@ import {
 } from './hooks/context.js';
 import { useBackHandler } from './hooks/useBackHandler.js';
 import { useBeforeNavigate } from './hooks/useBeforeNavigate.js';
+import { useFocusEffect } from './hooks/useFocusEffect.js';
+import { useIsFocused } from './hooks/useIsFocused.js';
 import type { NavigationActions } from './hooks/useNavigation.js';
 import { useNavigation } from './hooks/useNavigation.js';
 import type { OverlayActions } from './hooks/useOverlay.js';
@@ -48,6 +50,8 @@ export interface RouterInstance {
     guard: (from: RouteInfo, to: RouteInfo, direction: NavigationDirection) => boolean,
   ) => void;
   useBackHandler: (handler: () => boolean) => void;
+  useFocusEffect: (callback: () => undefined | (() => void)) => void;
+  useIsFocused: () => boolean;
 }
 
 export function createRouter<TTabs extends TabDef[], TOverlays extends OverlayDef[]>(
@@ -143,6 +147,8 @@ export function createRouter<TTabs extends TabDef[], TOverlays extends OverlayDe
     useOverlay,
     useBeforeNavigate,
     useBackHandler,
+    useFocusEffect,
+    useIsFocused,
   };
 }
 

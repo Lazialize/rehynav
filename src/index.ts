@@ -18,6 +18,8 @@ export type { RouterConfig, RouterInstance } from './create-router.js';
 export { createRouter } from './create-router.js';
 export { useBackHandler } from './hooks/useBackHandler.js';
 export { useBeforeNavigate } from './hooks/useBeforeNavigate.js';
+export { useFocusEffect } from './hooks/useFocusEffect.js';
+export { useIsFocused } from './hooks/useIsFocused.js';
 export type { NavigationActions } from './hooks/useNavigation.js';
 // Hooks (for advanced global registration usage)
 export { useNavigation } from './hooks/useNavigation.js';

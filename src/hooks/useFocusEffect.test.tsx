@@ -6,6 +6,7 @@ import { createNavigationGuardRegistry } from '../core/navigation-guard.js';
 import { navigationReducer } from '../core/reducer.js';
 import { createInitialState } from '../core/state.js';
 import type { NavigationAction, NavigationState } from '../core/types.js';
+import type { Serializable } from '../types/serializable.js';
 import type { NavigationStoreForHooks } from './context.js';
 import { GuardRegistryContext, NavigationStoreContext, RouteContext } from './context.js';
 import { useFocusEffect } from './useFocusEffect.js';
@@ -41,7 +42,7 @@ function testCreateId(): string {
 
 function createWrapper(
   store: NavigationStoreForHooks,
-  routeCtx: { route: string; params: Record<string, unknown>; entryId: string },
+  routeCtx: { route: string; params: Record<string, Serializable>; entryId: string },
 ) {
   const guardRegistry = createNavigationGuardRegistry();
   return function Wrapper({ children }: { children: React.ReactNode }) {
@@ -73,6 +74,7 @@ describe('useFocusEffect', () => {
         useFocusEffect(
           useCallback(() => {
             effect();
+            return undefined;
           }, []),
         ),
       { wrapper },
@@ -99,6 +101,7 @@ describe('useFocusEffect', () => {
         useFocusEffect(
           useCallback(() => {
             effect();
+            return undefined;
           }, []),
         ),
       { wrapper },
