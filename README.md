@@ -61,9 +61,10 @@ yarn add rehynav
 ### 1. Define Routes
 
 ```tsx
+// router.ts
 import { createRouter, tab, stack, overlay } from 'rehynav';
 
-const router = createRouter({
+export const router = createRouter({
   tabs: [
     tab('home', HomeScreen, [
       stack('post-detail/:postId', PostDetailScreen),
@@ -75,38 +76,27 @@ const router = createRouter({
   ],
   overlays: [overlay('new-post', NewPostModal), overlay('share', ShareSheet)],
   initialTab: 'home',
+  tabBar: AppTabBar,
+  urlSync: true,
 });
-
-export const {
-  NavigationProvider,
-  useNavigation,
-  useRoute,
-  useTab,
-  useOverlay,
-  useBeforeNavigate,
-  useBackHandler,
-} = router;
 ```
 
 ### 2. Mount the Provider
 
 ```tsx
-import { TabNavigator } from 'rehynav';
-import { NavigationProvider } from './router';
+// main.tsx
+import { RouterProvider } from 'rehynav';
+import { router } from './router';
 
-function App() {
-  return (
-    <NavigationProvider urlSync>
-      <TabNavigator tabBar={AppTabBar} />
-    </NavigationProvider>
-  );
-}
+createRoot(document.getElementById('root')!).render(
+  <RouterProvider router={router} />
+);
 ```
 
 ### 3. Navigate
 
 ```tsx
-import { useNavigation, useOverlay } from './router';
+import { useNavigation, useOverlay } from 'rehynav';
 
 function HomeScreen() {
   const { push, goBack } = useNavigation();
@@ -146,7 +136,8 @@ function HomeScreen() {
 
 | Component | Description |
 |-----------|-------------|
-| `TabNavigator` | Tab navigation container with customizable tab bar |
+| `RouterProvider` | Root provider — renders tabs, stacks, and overlays from a router instance |
+| `TabNavigator` | Tab navigation container (used internally by `RouterProvider`, or standalone for advanced use) |
 | `Link` | Declarative navigation link |
 
 ---
