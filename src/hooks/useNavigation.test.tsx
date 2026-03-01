@@ -243,4 +243,153 @@ describe('useNavigation', () => {
       renderHook(() => useNavigation());
     }).toThrow('useNavigationStore must be used within NavigationProvider');
   });
+
+  describe('screen layer navigation', () => {
+    it('navigateToTabs switches from screens to tabs', () => {
+      const state = createInitialState(
+        {
+          tabs: ['home', 'search'],
+          initialTab: 'home',
+          initialScreen: 'login',
+          screenNames: ['login'],
+        },
+        testCreateId,
+        () => 1000,
+      );
+      const store = createTestStore(state);
+      const wrapper = createWrapper(store);
+
+      const { result } = renderHook(() => useNavigation(), { wrapper });
+
+      expect(store.getState().activeLayer).toBe('screens');
+
+      act(() => {
+        result.current.navigateToTabs();
+      });
+
+      expect(store.getState().activeLayer).toBe('tabs');
+      expect(store.getState().screens).toEqual([]);
+    });
+
+    it('navigateToTabs switches to specific tab', () => {
+      const state = createInitialState(
+        {
+          tabs: ['home', 'search'],
+          initialTab: 'home',
+          initialScreen: 'login',
+          screenNames: ['login'],
+        },
+        testCreateId,
+        () => 1000,
+      );
+      const store = createTestStore(state);
+      const wrapper = createWrapper(store);
+
+      const { result } = renderHook(() => useNavigation(), { wrapper });
+
+      act(() => {
+        result.current.navigateToTabs('search');
+      });
+
+      expect(store.getState().activeTab).toBe('search');
+    });
+
+    it('navigateToScreen switches from tabs to screen', () => {
+      const state = createInitialState(
+        { tabs: ['home', 'search'], initialTab: 'home' },
+        testCreateId,
+        () => 1000,
+      );
+      const store = createTestStore(state);
+      const wrapper = createWrapper(store);
+
+      const { result } = renderHook(() => useNavigation(), { wrapper });
+
+      expect(store.getState().activeLayer).toBe('tabs');
+
+      act(() => {
+        result.current.navigateToScreen('login');
+      });
+
+      expect(store.getState().activeLayer).toBe('screens');
+      expect(store.getState().screens).toHaveLength(1);
+      expect(store.getState().screens[0].route).toBe('login');
+    });
+
+    it('push dispatches PUSH_SCREEN when activeLayer is screens', () => {
+      const state = createInitialState(
+        {
+          tabs: ['home', 'search'],
+          initialTab: 'home',
+          initialScreen: 'login',
+          screenNames: ['login'],
+        },
+        testCreateId,
+        () => 1000,
+      );
+      const store = createTestStore(state);
+      const wrapper = createWrapper(store);
+
+      const { result } = renderHook(() => useNavigation(), { wrapper });
+
+      act(() => {
+        result.current.push('login/signup');
+      });
+
+      expect(store.getState().screens).toHaveLength(2);
+      expect(store.getState().screens[1].route).toBe('login/signup');
+    });
+
+    it('pop dispatches POP_SCREEN when activeLayer is screens', () => {
+      const state = createInitialState(
+        {
+          tabs: ['home', 'search'],
+          initialTab: 'home',
+          initialScreen: 'login',
+          screenNames: ['login'],
+        },
+        testCreateId,
+        () => 1000,
+      );
+      const store = createTestStore(state);
+      const wrapper = createWrapper(store);
+
+      const { result } = renderHook(() => useNavigation(), { wrapper });
+
+      act(() => {
+        result.current.push('login/signup');
+      });
+      expect(store.getState().screens).toHaveLength(2);
+
+      act(() => {
+        result.current.pop();
+      });
+      expect(store.getState().screens).toHaveLength(1);
+    });
+
+    it('canGoBack returns true when screen stack has more than one entry', () => {
+      const state = createInitialState(
+        {
+          tabs: ['home', 'search'],
+          initialTab: 'home',
+          initialScreen: 'login',
+          screenNames: ['login'],
+        },
+        testCreateId,
+        () => 1000,
+      );
+      const store = createTestStore(state);
+      const wrapper = createWrapper(store);
+
+      const { result } = renderHook(() => useNavigation(), { wrapper });
+
+      expect(result.current.canGoBack()).toBe(false);
+
+      act(() => {
+        result.current.push('login/signup');
+      });
+
+      expect(result.current.canGoBack()).toBe(true);
+    });
+  });
 });

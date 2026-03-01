@@ -13,6 +13,8 @@ export interface NavigationActions {
   goBack(): void;
   canGoBack(): boolean;
   preload(to: string, params?: Record<string, Serializable>): void;
+  navigateToTabs(tab?: string): void;
+  navigateToScreen(route: string, params?: Record<string, Serializable>): void;
 }
 
 export function useNavigation(): NavigationActions {
@@ -23,26 +25,48 @@ export function useNavigation(): NavigationActions {
   return useMemo(
     () => ({
       push(to: string, params: Record<string, Serializable> = {}) {
-        const from = getCurrentRouteInfo(store.getState());
+        const state = store.getState();
+        const from = getCurrentRouteInfo(state);
         const toInfo: RouteInfo = { route: to, params };
         if (!guardRegistry.check(from, toInfo, 'push')) return;
-        store.dispatch({
-          type: 'PUSH',
-          route: to,
-          params,
-          id: createId(),
-          timestamp: Date.now(),
-        });
+
+        if (state.activeLayer === 'screens') {
+          store.dispatch({
+            type: 'PUSH_SCREEN',
+            route: to,
+            params,
+            id: createId(),
+            timestamp: Date.now(),
+          });
+        } else {
+          store.dispatch({
+            type: 'PUSH',
+            route: to,
+            params,
+            id: createId(),
+            timestamp: Date.now(),
+          });
+        }
       },
       pop() {
         const state = store.getState();
-        const activeTab = state.tabs[state.activeTab];
-        if (activeTab.stack.length <= 1) return;
-        const from = getCurrentRouteInfo(state);
-        const prevEntry = activeTab.stack[activeTab.stack.length - 2];
-        const toInfo: RouteInfo = { route: prevEntry.route, params: prevEntry.params };
-        if (!guardRegistry.check(from, toInfo, 'back')) return;
-        store.dispatch({ type: 'POP' });
+
+        if (state.activeLayer === 'screens') {
+          if (state.screens.length <= 1) return;
+          const from = getCurrentRouteInfo(state);
+          const prevEntry = state.screens[state.screens.length - 2];
+          const toInfo: RouteInfo = { route: prevEntry.route, params: prevEntry.params };
+          if (!guardRegistry.check(from, toInfo, 'back')) return;
+          store.dispatch({ type: 'POP_SCREEN' });
+        } else {
+          const activeTab = state.tabs[state.activeTab];
+          if (activeTab.stack.length <= 1) return;
+          const from = getCurrentRouteInfo(state);
+          const prevEntry = activeTab.stack[activeTab.stack.length - 2];
+          const toInfo: RouteInfo = { route: prevEntry.route, params: prevEntry.params };
+          if (!guardRegistry.check(from, toInfo, 'back')) return;
+          store.dispatch({ type: 'POP' });
+        }
       },
       popToRoot() {
         const state = store.getState();
@@ -72,15 +96,21 @@ export function useNavigation(): NavigationActions {
         let toInfo: RouteInfo;
 
         if (state.overlays.length > 0) {
-          // Closing overlay: destination is either previous overlay or top stack entry
           if (state.overlays.length > 1) {
             const prevOverlay = state.overlays[state.overlays.length - 2];
             toInfo = { route: prevOverlay.route, params: prevOverlay.params };
+          } else if (state.activeLayer === 'screens' && state.screens.length > 0) {
+            const topScreen = state.screens[state.screens.length - 1];
+            toInfo = { route: topScreen.route, params: topScreen.params };
           } else {
             const activeTab = state.tabs[state.activeTab];
             const topEntry = activeTab.stack[activeTab.stack.length - 1];
             toInfo = { route: topEntry.route, params: topEntry.params };
           }
+        } else if (state.activeLayer === 'screens') {
+          if (state.screens.length <= 1) return;
+          const prevEntry = state.screens[state.screens.length - 2];
+          toInfo = { route: prevEntry.route, params: prevEntry.params };
         } else {
           const activeTab = state.tabs[state.activeTab];
           if (activeTab.stack.length <= 1) return;
@@ -93,10 +123,31 @@ export function useNavigation(): NavigationActions {
       },
       canGoBack(): boolean {
         const state = store.getState();
-        return state.overlays.length > 0 || state.tabs[state.activeTab].stack.length > 1;
+        if (state.overlays.length > 0) return true;
+        if (state.activeLayer === 'screens') return state.screens.length > 1;
+        return state.tabs[state.activeTab].stack.length > 1;
       },
       preload(to: string, params: Record<string, Serializable> = {}) {
         preloadCtx?.preload(to, params);
+      },
+      navigateToTabs(tab?: string) {
+        const from = getCurrentRouteInfo(store.getState());
+        const toRoute = tab ?? store.getState().activeTab;
+        const toInfo: RouteInfo = { route: toRoute, params: {} };
+        if (!guardRegistry.check(from, toInfo, 'push')) return;
+        store.dispatch({ type: 'NAVIGATE_TO_TABS', tab });
+      },
+      navigateToScreen(route: string, params: Record<string, Serializable> = {}) {
+        const from = getCurrentRouteInfo(store.getState());
+        const toInfo: RouteInfo = { route, params };
+        if (!guardRegistry.check(from, toInfo, 'push')) return;
+        store.dispatch({
+          type: 'NAVIGATE_TO_SCREEN',
+          route,
+          params,
+          id: createId(),
+          timestamp: Date.now(),
+        });
       },
     }),
     [store, guardRegistry, preloadCtx],
