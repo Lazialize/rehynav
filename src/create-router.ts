@@ -26,7 +26,7 @@ import { useRoute } from './hooks/useRoute.js';
 import { useScrollRestoration } from './hooks/useScrollRestoration.js';
 import type { TabActions } from './hooks/useTab.js';
 import { useTab } from './hooks/useTab.js';
-import type { OverlayDef, TabDef } from './route-helpers.js';
+import type { OverlayDef, ScreenDef, TabDef } from './route-helpers.js';
 import { createNavigationStore } from './store/navigation-store.js';
 import { createScreenRegistry, type ScreenRegistration } from './store/screen-registry.js';
 import { HistorySyncManager } from './sync/history-sync.js';
@@ -35,10 +35,13 @@ import type { NavigationProviderProps } from './types/props.js';
 export interface RouterConfig<
   TTabs extends TabDef[] = TabDef[],
   TOverlays extends OverlayDef[] = [],
+  TScreens extends ScreenDef[] = [],
 > {
   tabs: [...TTabs];
   overlays?: [...TOverlays];
+  screens?: [...TScreens];
   initialTab: TTabs[number]['name'];
+  initialScreen?: string;
 }
 
 export interface RouterInstance {
@@ -56,11 +59,14 @@ export interface RouterInstance {
   useScrollRestoration: (ref: RefObject<HTMLElement | null>) => void;
 }
 
-export function createRouter<TTabs extends TabDef[], TOverlays extends OverlayDef[]>(
-  config: RouterConfig<TTabs, TOverlays>,
-): RouterInstance {
-  const { tabNames, registrations, routes } = parseConfig(config);
+export function createRouter<
+  TTabs extends TabDef[],
+  TOverlays extends OverlayDef[],
+  TScreens extends ScreenDef[],
+>(config: RouterConfig<TTabs, TOverlays, TScreens>): RouterInstance {
+  const { tabNames, screenNames, registrations, routes } = parseConfig(config);
   const initialTab = config.initialTab as string;
+  const initialScreen = config.initialScreen as string | undefined;
   const routePatterns = routes.length > 0 ? parseRoutePatterns(routes) : undefined;
 
   function NavigationProvider(props: NavigationProviderProps): React.ReactElement {
@@ -74,7 +80,7 @@ export function createRouter<TTabs extends TabDef[], TOverlays extends OverlayDe
       } else if (urlSync && typeof window !== 'undefined') {
         resolvedInitialState = urlToState(
           window.location.pathname + window.location.search,
-          { tabs: tabNames, initialTab },
+          { tabs: tabNames, initialTab, initialScreen, screenNames },
           basePath,
           createId,
           Date.now,
@@ -82,7 +88,7 @@ export function createRouter<TTabs extends TabDef[], TOverlays extends OverlayDe
         );
       } else {
         resolvedInitialState = createInitialState(
-          { tabs: tabNames, initialTab },
+          { tabs: tabNames, initialTab, initialScreen, screenNames },
           createId,
           Date.now,
         );
@@ -121,6 +127,8 @@ export function createRouter<TTabs extends TabDef[], TOverlays extends OverlayDe
         initialTab,
         createId,
         now: Date.now,
+        initialScreen,
+        screenNames,
       });
       syncManager.start();
       return () => syncManager.stop();
@@ -158,15 +166,37 @@ export function createRouter<TTabs extends TabDef[], TOverlays extends OverlayDe
 // --- Config parser ---
 
 // biome-ignore lint/suspicious/noExplicitAny: accepts any config shape
-function parseConfig(config: RouterConfig<any, any>): {
+function parseConfig(config: RouterConfig<any, any, any>): {
   tabNames: string[];
+  screenNames: string[];
   registrations: ScreenRegistration[];
   routes: string[];
 } {
   const tabNames: string[] = [];
+  const screenNames: string[] = [];
   const registrations: ScreenRegistration[] = [];
   const routes: string[] = [];
 
+  // Parse screens
+  if (config.screens) {
+    for (const screenDef of config.screens) {
+      screenNames.push(screenDef.name);
+      registrations.push({ route: screenDef.name, component: screenDef.component });
+      routes.push(screenDef.name);
+
+      for (const stackDef of screenDef.children) {
+        const fullRoute = `${screenDef.name}/${stackDef.path}`;
+        registrations.push({
+          route: fullRoute,
+          component: stackDef.component,
+          options: stackDef.options,
+        });
+        routes.push(fullRoute);
+      }
+    }
+  }
+
+  // Parse tabs
   for (const tabDef of config.tabs) {
     tabNames.push(tabDef.name);
     registrations.push({ route: tabDef.name, component: tabDef.component });
@@ -183,6 +213,7 @@ function parseConfig(config: RouterConfig<any, any>): {
     }
   }
 
+  // Parse overlays
   if (config.overlays) {
     for (const overlayDef of config.overlays) {
       registrations.push({
@@ -193,5 +224,5 @@ function parseConfig(config: RouterConfig<any, any>): {
     }
   }
 
-  return { tabNames, registrations, routes };
+  return { tabNames, screenNames, registrations, routes };
 }

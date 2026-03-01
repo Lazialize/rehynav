@@ -2,7 +2,7 @@ import { act, renderHook } from '@testing-library/react';
 import type React from 'react';
 import { describe, expect, it } from 'vitest';
 import { createRouter } from './create-router.js';
-import { overlay, stack, tab } from './route-helpers.js';
+import { overlay, screen, stack, tab } from './route-helpers.js';
 
 const HomeScreen: React.FC = () => null;
 const SearchScreen: React.FC = () => null;
@@ -10,6 +10,8 @@ const ProfileScreen: React.FC = () => null;
 const DetailScreen: React.FC = () => null;
 const LoginOverlay: React.FC = () => null;
 const ActionOverlay: React.FC = () => null;
+const LoginScreen: React.FC = () => null;
+const SignupScreen: React.FC = () => null;
 
 describe('createRouter', () => {
   it('should accept function-based config and return RouterInstance', () => {
@@ -86,5 +88,20 @@ describe('createRouter', () => {
     });
 
     expect(result.current.canGoBack()).toBe(true);
+  });
+});
+
+describe('createRouter with screens', () => {
+  it('creates router with screens config', () => {
+    const router = createRouter({
+      screens: [screen('login', LoginScreen, [stack('signup', SignupScreen)])],
+      tabs: [tab('home', HomeScreen)],
+      overlays: [],
+      initialTab: 'home',
+      initialScreen: 'login',
+    });
+
+    expect(router.NavigationProvider).toBeDefined();
+    expect(router.useNavigation).toBeDefined();
   });
 });
