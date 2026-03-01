@@ -27,6 +27,9 @@ jobs:
   version:
     needs: ci
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -66,6 +69,8 @@ jobs:
       - name: Apply snapshot version
         if: steps.check.outputs.has_changesets == 'true'
         run: pnpm changeset version --snapshot next
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Build
         if: steps.check.outputs.has_changesets == 'true'
         run: pnpm build
