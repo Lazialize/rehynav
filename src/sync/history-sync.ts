@@ -30,6 +30,9 @@ export class HistorySyncManager {
   private goBackAbort: AbortController | null = null;
   private goBackTimeout: ReturnType<typeof setTimeout> | null = null;
 
+  /** Max time (ms) to wait for popstate before resetting isSyncing */
+  private static readonly GO_BACK_SAFETY_TIMEOUT = 100;
+
   constructor(
     store: NavigationStore,
     basePath: string = '/',
@@ -79,7 +82,6 @@ export class HistorySyncManager {
       this.unsubscribe = null;
     }
     this.cancelPendingGoBack();
-    this.isSyncing = false;
   }
 
   private handlePopState(event: PopStateEvent): void {
@@ -214,6 +216,7 @@ export class HistorySyncManager {
     this.goBackAbort = abort;
 
     const cleanup = () => {
+      abort.abort();
       this.goBackAbort = null;
       if (this.goBackTimeout !== null) {
         clearTimeout(this.goBackTimeout);
@@ -233,11 +236,10 @@ export class HistorySyncManager {
     // Safety timeout: reset isSyncing if popstate never fires
     this.goBackTimeout = setTimeout(() => {
       if (!abort.signal.aborted) {
-        abort.abort();
         this.isSyncing = false;
         cleanup();
       }
-    }, 100);
+    }, HistorySyncManager.GO_BACK_SAFETY_TIMEOUT);
 
     window.history.go(-delta);
   }
@@ -251,6 +253,7 @@ export class HistorySyncManager {
       clearTimeout(this.goBackTimeout);
       this.goBackTimeout = null;
     }
+    this.isSyncing = false;
   }
 
   createHistoryState(state: NavigationState): HistoryState {
