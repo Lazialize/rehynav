@@ -1,18 +1,21 @@
 import type { ErrorFallbackProps, TabBarProps } from 'rehynav';
-import { createRouter, overlay, stack, TabNavigator, tab } from 'rehynav';
+import { createRouter, overlay, screen, stack, TabNavigator, tab } from 'rehynav';
 import './App.css';
 
 import { NewPostModal } from './overlays/NewPostModal';
 import { ShareSheet } from './overlays/ShareSheet';
 import { HomeScreen } from './screens/HomeScreen';
+import { LoginScreen } from './screens/LoginScreen';
 import { PostDetailScreen } from './screens/PostDetailScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { SearchScreen } from './screens/SearchScreen';
 import { SettingsScreen } from './screens/SettingsScreen';
+import { SignupScreen } from './screens/SignupScreen';
 
 const postDetail = stack('post-detail/:postId', PostDetailScreen);
 
 const router = createRouter({
+  screens: [screen('login', LoginScreen, [stack('signup', SignupScreen)])],
   tabs: [
     tab('home', HomeScreen, [postDetail]),
     tab('search', SearchScreen, [postDetail]),
@@ -20,6 +23,7 @@ const router = createRouter({
   ],
   overlays: [overlay('new-post', NewPostModal), overlay('share', ShareSheet)],
   initialTab: 'home',
+  initialScreen: 'login',
 });
 
 export const {
