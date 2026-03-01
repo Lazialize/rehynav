@@ -17,6 +17,7 @@ export interface TabNavigatorProps {
   lazy?: boolean;
   maxStackDepth?: number;
   suspenseFallback?: React.ReactNode;
+  errorFallback?: React.ComponentType<ErrorFallbackProps>;
 }
 
 export interface TabBarProps {

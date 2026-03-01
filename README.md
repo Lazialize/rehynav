@@ -35,6 +35,15 @@ Many React routers are optimized for "web-first" navigation (URL-driven, single 
 - **Hybrid-friendly**
   Designed to integrate with Capacitor/Tauri: hardware back, lifecycle, and deep links.
 
+- **Screen Lifecycle**
+  Detect when screens gain or lose focus with `useFocusEffect` and `useIsFocused`. Automatically save and restore scroll position with `useScrollRestoration`.
+
+- **Lazy Loading & Error Boundaries**
+  Pass `React.lazy()` components directly to route definitions. Per-route error boundaries catch crashes without breaking the whole app.
+
+- **Screen Preloading**
+  Pre-render screens before navigation with `preload()` for instant transitions.
+
 ---
 
 ## Installation
@@ -129,6 +138,9 @@ function HomeScreen() {
 | `useOverlay` | `open` / `close` overlays |
 | `useBeforeNavigate` | Navigation guard before route changes |
 | `useBackHandler` | Custom back button handling |
+| `useFocusEffect` | Run effects when screen gains/loses focus |
+| `useIsFocused` | Check if current screen is focused |
+| `useScrollRestoration` | Save and restore scroll position on focus changes |
 
 ## Components
 

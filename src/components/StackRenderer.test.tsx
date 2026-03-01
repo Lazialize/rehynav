@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { render, screen } from '@testing-library/react';
-import type React from 'react';
+import React from 'react';
 import { describe, expect, it } from 'vitest';
 import { createNavigationGuardRegistry } from '../core/navigation-guard.js';
 import { createInitialState } from '../core/state.js';
@@ -14,6 +14,7 @@ import {
 import { createNavigationStore } from '../store/navigation-store.js';
 import { createScreenRegistry } from '../store/screen-registry.js';
 import { StackRenderer } from './StackRenderer.js';
+import { SuspenseFallbackContext } from './SuspenseFallbackContext.js';
 
 let idCounter = 0;
 function testCreateId(): string {
@@ -145,5 +146,36 @@ describe('StackRenderer', () => {
 
     const wrapper = container.querySelector('[data-route-type="stack"]');
     expect(wrapper).toHaveStyle({ display: 'block' });
+  });
+});
+
+describe('StackRenderer with Suspense', () => {
+  it('renders lazy-loaded components with Suspense fallback', async () => {
+    let resolveComponent!: (value: { default: React.ComponentType }) => void;
+    const lazyPromise = new Promise<{ default: React.ComponentType }>((resolve) => {
+      resolveComponent = resolve;
+    });
+    const LazyComponent = React.lazy(() => lazyPromise);
+
+    const { Wrapper, screenRegistry } = createTestWrapper();
+    screenRegistry.register({ route: 'home', component: LazyComponent });
+
+    const stack: StackEntry[] = [{ id: 'entry-1', route: 'home', params: {}, timestamp: 1000 }];
+
+    render(
+      <SuspenseFallbackContext.Provider value={<div>Loading...</div>}>
+        <Wrapper>
+          <StackRenderer stack={stack} />
+        </Wrapper>
+      </SuspenseFallbackContext.Provider>,
+    );
+
+    expect(screen.getByText('Loading...')).toBeInTheDocument();
+
+    await React.act(async () => {
+      resolveComponent({ default: () => <div>Home Screen</div> });
+    });
+
+    expect(screen.getByText('Home Screen')).toBeInTheDocument();
   });
 });

@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useOptionalPreloadContext } from '../components/PreloadContext.js';
 import { createId } from '../core/id.js';
 import { getCurrentRouteInfo } from '../core/route-utils.js';
 import type { RouteInfo, Serializable } from '../core/types.js';
@@ -11,11 +12,13 @@ export interface NavigationActions {
   replace(to: string, params?: Record<string, Serializable>): void;
   goBack(): void;
   canGoBack(): boolean;
+  preload(to: string, params?: Record<string, Serializable>): void;
 }
 
 export function useNavigation(): NavigationActions {
   const store = useNavigationStore();
   const guardRegistry = useGuardRegistry();
+  const preloadCtx = useOptionalPreloadContext();
 
   return useMemo(
     () => ({
@@ -92,7 +95,10 @@ export function useNavigation(): NavigationActions {
         const state = store.getState();
         return state.overlays.length > 0 || state.tabs[state.activeTab].stack.length > 1;
       },
+      preload(to: string, params: Record<string, Serializable> = {}) {
+        preloadCtx?.preload(to, params);
+      },
     }),
-    [store, guardRegistry],
+    [store, guardRegistry, preloadCtx],
   );
 }

@@ -1,5 +1,5 @@
 import type React from 'react';
-import { createElement, useEffect, useRef } from 'react';
+import { createElement, type RefObject, useEffect, useRef } from 'react';
 import { createId } from './core/id.js';
 import { createNavigationGuardRegistry } from './core/navigation-guard.js';
 import { parseRoutePatterns } from './core/path-params.js';
@@ -23,6 +23,7 @@ import type { OverlayActions } from './hooks/useOverlay.js';
 import { useOverlay } from './hooks/useOverlay.js';
 import type { RouteInfoResult } from './hooks/useRoute.js';
 import { useRoute } from './hooks/useRoute.js';
+import { useScrollRestoration } from './hooks/useScrollRestoration.js';
 import type { TabActions } from './hooks/useTab.js';
 import { useTab } from './hooks/useTab.js';
 import type { OverlayDef, TabDef } from './route-helpers.js';
@@ -52,6 +53,7 @@ export interface RouterInstance {
   useBackHandler: (handler: () => boolean) => void;
   useFocusEffect: (callback: () => undefined | (() => void)) => void;
   useIsFocused: () => boolean;
+  useScrollRestoration: (ref: RefObject<HTMLElement | null>) => void;
 }
 
 export function createRouter<TTabs extends TabDef[], TOverlays extends OverlayDef[]>(
@@ -149,6 +151,7 @@ export function createRouter<TTabs extends TabDef[], TOverlays extends OverlayDe
     useBackHandler,
     useFocusEffect,
     useIsFocused,
+    useScrollRestoration,
   };
 }
 

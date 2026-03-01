@@ -2,6 +2,7 @@
 
 // Components
 export { Link } from './components/Link.js';
+export type { PreloadEntry } from './components/PreloadContext.js';
 export { TabNavigator } from './components/TabNavigator.js';
 
 export type {
@@ -29,6 +30,7 @@ export type { OverlayActions } from './hooks/useOverlay.js';
 export { useOverlay } from './hooks/useOverlay.js';
 export type { RouteInfoResult } from './hooks/useRoute.js';
 export { useRoute } from './hooks/useRoute.js';
+export { useScrollRestoration } from './hooks/useScrollRestoration.js';
 export type { TabActions } from './hooks/useTab.js';
 export { useTab } from './hooks/useTab.js';
 

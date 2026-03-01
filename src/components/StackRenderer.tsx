@@ -1,5 +1,9 @@
+import { Suspense } from 'react';
 import type { StackEntry } from '../core/types.js';
 import { RouteContext, useScreenRegistry } from '../hooks/context.js';
+import { useErrorFallback } from './ErrorFallbackContext.js';
+import { RouteErrorBoundary } from './RouteErrorBoundary.js';
+import { useSuspenseFallback } from './SuspenseFallbackContext.js';
 import { UnregisteredScreenError } from './UnregisteredScreenError.js';
 
 export interface StackRendererProps {
@@ -8,6 +12,8 @@ export interface StackRendererProps {
 
 export function StackRenderer({ stack }: StackRendererProps): React.ReactElement {
   const registry = useScreenRegistry();
+  const suspenseFallback = useSuspenseFallback();
+  const errorFallback = useErrorFallback();
 
   return (
     <>
@@ -26,11 +32,15 @@ export function StackRenderer({ stack }: StackRendererProps): React.ReactElement
             <RouteContext.Provider
               value={{ route: entry.route, params: entry.params, entryId: entry.id }}
             >
-              {registration ? (
-                <registration.component params={entry.params} />
-              ) : (
-                <UnregisteredScreenError route={entry.route} registry={registry} />
-              )}
+              <RouteErrorBoundary route={entry.route} fallback={errorFallback}>
+                <Suspense fallback={suspenseFallback}>
+                  {registration ? (
+                    <registration.component params={entry.params} />
+                  ) : (
+                    <UnregisteredScreenError route={entry.route} registry={registry} />
+                  )}
+                </Suspense>
+              </RouteErrorBoundary>
             </RouteContext.Provider>
           </div>
         );

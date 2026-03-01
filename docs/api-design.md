@@ -237,6 +237,17 @@ interface TabNavigatorProps {
 
   // Maximum stack depth per tab before oldest entries are unmounted (default: 10)
   maxStackDepth?: number;
+
+  // Fallback UI shown while lazy-loaded (React.lazy) screen components are loading
+  suspenseFallback?: React.ReactNode;
+
+  // Custom error UI rendered when a screen component throws during rendering
+  errorFallback?: React.ComponentType<ErrorFallbackProps>;
+}
+
+interface ErrorFallbackProps {
+  error: Error;
+  resetErrorBoundary: () => void;
 }
 
 interface TabBarProps {
@@ -443,6 +454,13 @@ interface NavigationActions {
 
   // Check if we can go back
   canGoBack(): boolean;
+
+  // Preload a screen so it renders instantly on navigation
+  preload<RouteName extends StackRoutes>(
+    ...args: RequiredKeys<RouteParams<RouteName>> extends never
+      ? [to: RouteName, params?: RouteParams<RouteName>]
+      : [to: RouteName, params: RouteParams<RouteName>]
+  ): void;
 }
 ```
 
@@ -682,6 +700,78 @@ function FormScreen() {
   });
 
   return <form>...</form>;
+}
+```
+
+### 5.8 `useFocusEffect()`
+
+Runs an effect when the screen gains focus and cleans it up when the screen loses focus. Similar to React Navigation's `useFocusEffect`.
+
+```typescript
+function useFocusEffect(callback: () => void | (() => void)): void;
+```
+
+The `callback` is called when the screen becomes the active (focused) screen. If the callback returns a cleanup function, that cleanup runs when the screen loses focus.
+
+**Usage:**
+```tsx
+function ChatScreen() {
+  useFocusEffect(() => {
+    const ws = new WebSocket("wss://chat.example.com");
+    ws.onmessage = (e) => {
+      // handle message
+    };
+    return () => ws.close(); // cleanup on blur
+  });
+
+  return <div>Chat</div>;
+}
+```
+
+### 5.9 `useIsFocused()`
+
+Returns a boolean indicating whether the current screen is focused (active).
+
+```typescript
+function useIsFocused(): boolean;
+```
+
+Re-renders the component when the focus state changes.
+
+**Usage:**
+```tsx
+function PlayerScreen() {
+  const isFocused = useIsFocused();
+
+  useEffect(() => {
+    if (!isFocused) {
+      pauseVideo();
+    }
+  }, [isFocused]);
+
+  return <div>Video Player</div>;
+}
+```
+
+### 5.10 `useScrollRestoration()`
+
+Saves the scroll position when the screen loses focus and restores it when the screen regains focus. Accepts a ref to the scrollable container element.
+
+```typescript
+function useScrollRestoration(ref: React.RefObject<HTMLElement>): void;
+```
+
+**Usage:**
+```tsx
+function FeedScreen() {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useScrollRestoration(scrollRef);
+
+  return (
+    <div ref={scrollRef} style={{ overflow: "auto", height: "100vh" }}>
+      {/* long scrollable content */}
+    </div>
+  );
 }
 ```
 
@@ -1019,12 +1109,15 @@ function App() {
 | `TabNavigator` | Renders tab layout with independent stacks |
 | `Screen` | Maps a route name to a component |
 | `Link` | Type-safe navigation link (`<a>` on web, tabs/stacks only) |
-| `useNavigation()` | `push`, `pop`, `popToRoot`, `replace`, `goBack`, `canGoBack` |
+| `useNavigation()` | `push`, `pop`, `popToRoot`, `replace`, `goBack`, `canGoBack`, `preload` |
 | `useRoute()` | Current route name, params, path (auto-inferred in Screen) |
 | `useTab()` | `activeTab`, `switchTab`, `setBadge`, `tabs` |
 | `useOverlay()` | `open`, `close`, `isOpen`, `current` |
 | `useBeforeNavigate()` | Intercept any navigation (navigation guard) |
 | `useBackHandler()` | Convenience alias: intercept back navigation only |
+| `useFocusEffect()` | Run effect on focus, cleanup on blur |
+| `useIsFocused()` | Returns whether the current screen is focused |
+| `useScrollRestoration()` | Save and restore scroll position on focus changes |
 
 ### Package exports (for advanced global registration)
 
@@ -1044,6 +1137,7 @@ function App() {
 | `ScreenOptions` | Options for screen configuration |
 | `NavigationState` | Serializable navigation state |
 | `NavigationDirection` | `"back" \| "forward" \| "push" \| "replace" \| "tab-switch"` |
+| `ErrorFallbackProps` | Props for custom error fallback component |
 | `Serializable` | Constraint type for route params |
 
 ---
