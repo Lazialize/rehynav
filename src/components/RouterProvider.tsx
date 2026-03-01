@@ -29,13 +29,13 @@ export function RouterProvider({ router }: RouterProviderProps): React.ReactElem
   const storeRef = useRef<ReturnType<typeof createNavigationStore> | null>(null);
   if (storeRef.current === null) {
     let resolvedInitialState: NavigationState;
-    if (config.initialState) {
-      resolvedInitialState = config.initialState;
-    } else if (config.urlSync && typeof window !== 'undefined') {
+    if (config.global.initialState) {
+      resolvedInitialState = config.global.initialState;
+    } else if (config.global.urlSync && typeof window !== 'undefined') {
       resolvedInitialState = urlToState(
         window.location.pathname + window.location.search,
         { tabs: tabNames, initialTab, initialScreen, screenNames },
-        config.basePath ?? '/',
+        config.global.basePath ?? '/',
         createId,
         Date.now,
         routePatterns,
@@ -68,34 +68,41 @@ export function RouterProvider({ router }: RouterProviderProps): React.ReactElem
   const guardRegistry = guardRegistryRef.current;
 
   useEffect(() => {
-    if (!config.onStateChange) return;
+    if (!config.global.onStateChange) return;
     return store.subscribe(() => {
-      config.onStateChange?.(store.getState());
+      config.global.onStateChange?.(store.getState());
     });
-  }, [store, config.onStateChange]);
+  }, [store, config.global.onStateChange]);
 
   useEffect(() => {
-    if (!config.urlSync) return;
-    const syncManager = new HistorySyncManager(store, config.basePath ?? '/', routePatterns, {
-      tabs: tabNames,
-      initialTab,
-      createId,
-      now: Date.now,
-      initialScreen,
-      screenNames,
-    });
+    if (!config.global.urlSync) return;
+    const syncManager = new HistorySyncManager(
+      store,
+      config.global.basePath ?? '/',
+      routePatterns,
+      {
+        tabs: tabNames,
+        initialTab,
+        createId,
+        now: Date.now,
+        initialScreen,
+        screenNames,
+      },
+    );
     syncManager.start();
     return () => syncManager.stop();
   }, [
     store,
-    config.urlSync,
-    config.basePath,
+    config.global.urlSync,
+    config.global.basePath,
     routePatterns,
     tabNames,
     initialTab,
     initialScreen,
     screenNames,
   ]);
+
+  const tabsOptions = config.tabsLayer.options;
 
   return createElement(
     NavigationStoreContext.Provider,
@@ -110,13 +117,13 @@ export function RouterProvider({ router }: RouterProviderProps): React.ReactElem
           RoutePatternsContext.Provider,
           { value: routePatterns ?? null },
           createElement(TabNavigator, {
-            tabBar: config.tabBar,
-            tabBarPosition: config.tabBarPosition,
-            preserveState: config.preserveState,
-            lazy: config.lazy,
-            maxStackDepth: config.maxStackDepth,
-            suspenseFallback: config.suspenseFallback,
-            errorFallback: config.errorFallback,
+            tabBar: tabsOptions.tabBar,
+            tabBarPosition: tabsOptions.tabBarPosition,
+            preserveState: tabsOptions.preserveState,
+            lazy: tabsOptions.lazy,
+            maxStackDepth: tabsOptions.maxStackDepth,
+            suspenseFallback: tabsOptions.suspenseFallback,
+            errorFallback: tabsOptions.errorFallback,
           }),
         ),
       ),

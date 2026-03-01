@@ -1,4 +1,5 @@
 import type { ScreenOptions } from './store/screen-registry.js';
+import type { ErrorFallbackProps, TabBarProps } from './types/props.js';
 
 // --- Definition types (returned by helper functions) ---
 
@@ -94,4 +95,41 @@ export function screen<
     component,
     children: (children ?? []) as S,
   };
+}
+
+// --- Layer definitions (grouping helpers) ---
+
+export interface TabsLayerOptions {
+  initialTab: string;
+  tabBar?: React.ComponentType<TabBarProps>;
+  tabBarPosition?: 'top' | 'bottom';
+  preserveState?: boolean;
+  lazy?: boolean;
+  maxStackDepth?: number;
+  suspenseFallback?: React.ReactNode;
+  errorFallback?: React.ComponentType<ErrorFallbackProps>;
+}
+
+export interface TabsLayerDef {
+  readonly _tag: 'tabs';
+  readonly children: TabDef[];
+  readonly options: TabsLayerOptions;
+}
+
+export function tabs(children: TabDef[], options: TabsLayerOptions): TabsLayerDef {
+  return { _tag: 'tabs', children, options };
+}
+
+export interface ScreensLayerOptions {
+  initialScreen?: string;
+}
+
+export interface ScreensLayerDef {
+  readonly _tag: 'screens';
+  readonly children: ScreenDef[];
+  readonly options: ScreensLayerOptions;
+}
+
+export function screens(children: ScreenDef[], options?: ScreensLayerOptions): ScreensLayerDef {
+  return { _tag: 'screens', children, options: options ?? {} };
 }

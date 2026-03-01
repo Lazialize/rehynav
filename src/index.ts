@@ -18,7 +18,12 @@ export type {
   StackEntry,
   TabState,
 } from './core/types.js';
-export type { RouterConfig, RouterInstance } from './create-router.js';
+export type {
+  GlobalRouterOptions,
+  ParsedRouterConfig,
+  RouteEntry,
+  RouterInstance,
+} from './create-router.js';
 export { createRouter } from './create-router.js';
 export { useBackHandler } from './hooks/useBackHandler.js';
 export { useBeforeNavigate } from './hooks/useBeforeNavigate.js';
@@ -37,9 +42,18 @@ export { useScrollRestoration } from './hooks/useScrollRestoration.js';
 export type { TabActions } from './hooks/useTab.js';
 export { useTab } from './hooks/useTab.js';
 
-export type { OverlayDef, ScreenDef, StackDef, TabDef } from './route-helpers.js';
+export type {
+  OverlayDef,
+  ScreenDef,
+  ScreensLayerDef,
+  ScreensLayerOptions,
+  StackDef,
+  TabDef,
+  TabsLayerDef,
+  TabsLayerOptions,
+} from './route-helpers.js';
 // Route helpers
-export { overlay, screen, stack, tab } from './route-helpers.js';
+export { overlay, screen, screens, stack, tab, tabs } from './route-helpers.js';
 
 // Sync
 export { HistorySyncManager } from './sync/history-sync.js';

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { overlay, screen, stack, tab } from './route-helpers.js';
+import { overlay, screen, screens, stack, tab, tabs } from './route-helpers.js';
 
 const DummyComponent: React.FC = () => null;
 
@@ -60,5 +60,54 @@ describe('overlay', () => {
   it('accepts options', () => {
     const def = overlay('share', DummyComponent, { transition: 'fade' });
     expect(def.options?.transition).toBe('fade');
+  });
+});
+
+describe('tabs', () => {
+  it('creates a tabs layer definition', () => {
+    const def = tabs([tab('home', DummyComponent), tab('search', DummyComponent)], {
+      initialTab: 'home',
+    });
+    expect(def._tag).toBe('tabs');
+    expect(def.children).toHaveLength(2);
+    expect(def.options.initialTab).toBe('home');
+  });
+
+  it('accepts all TabNavigator options', () => {
+    const TabBar: React.FC<{
+      tabs: unknown[];
+      activeTab: string;
+      onTabPress: (name: string) => void;
+    }> = () => null;
+    const ErrorFallback: React.FC<{ error: Error; route: string; retry: () => void }> = () => null;
+    const def = tabs([tab('home', DummyComponent)], {
+      initialTab: 'home',
+      tabBar: TabBar,
+      tabBarPosition: 'top',
+      preserveState: true,
+      lazy: true,
+      maxStackDepth: 5,
+      errorFallback: ErrorFallback,
+    });
+    expect(def.options.tabBar).toBe(TabBar);
+    expect(def.options.tabBarPosition).toBe('top');
+    expect(def.options.preserveState).toBe(true);
+    expect(def.options.lazy).toBe(true);
+    expect(def.options.maxStackDepth).toBe(5);
+    expect(def.options.errorFallback).toBe(ErrorFallback);
+  });
+});
+
+describe('screens', () => {
+  it('creates a screens layer definition', () => {
+    const def = screens([screen('login', DummyComponent)], { initialScreen: 'login' });
+    expect(def._tag).toBe('screens');
+    expect(def.children).toHaveLength(1);
+    expect(def.options.initialScreen).toBe('login');
+  });
+
+  it('defaults options to empty object when omitted', () => {
+    const def = screens([screen('login', DummyComponent)]);
+    expect(def.options).toEqual({});
   });
 });

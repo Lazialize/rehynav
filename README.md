@@ -62,23 +62,27 @@ yarn add rehynav
 
 ```tsx
 // router.ts
-import { createRouter, tab, stack, overlay } from 'rehynav';
+import { createRouter, tabs, tab, stack, overlay } from 'rehynav';
 
-export const router = createRouter({
-  tabs: [
-    tab('home', HomeScreen, [
-      stack('post-detail/:postId', PostDetailScreen),
-    ]),
-    tab('search', SearchScreen),
-    tab('profile', ProfileScreen, [
-      stack('settings', SettingsScreen),
-    ]),
+export const router = createRouter(
+  [
+    tabs(
+      [
+        tab('home', HomeScreen, [
+          stack('post-detail/:postId', PostDetailScreen),
+        ]),
+        tab('search', SearchScreen),
+        tab('profile', ProfileScreen, [
+          stack('settings', SettingsScreen),
+        ]),
+      ],
+      { initialTab: 'home', tabBar: AppTabBar },
+    ),
+    overlay('new-post', NewPostModal),
+    overlay('share', ShareSheet),
   ],
-  overlays: [overlay('new-post', NewPostModal), overlay('share', ShareSheet)],
-  initialTab: 'home',
-  tabBar: AppTabBar,
-  urlSync: true,
-});
+  { urlSync: true },
+);
 ```
 
 ### 2. Mount the Provider

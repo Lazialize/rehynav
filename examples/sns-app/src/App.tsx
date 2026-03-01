@@ -1,5 +1,5 @@
 import type { ErrorFallbackProps, TabBarProps } from 'rehynav';
-import { createRouter, overlay, screen, stack, tab } from 'rehynav';
+import { createRouter, overlay, screen, screens, stack, tab, tabs } from 'rehynav';
 import './App.css';
 
 import { NewPostModal } from './overlays/NewPostModal';
@@ -14,23 +14,23 @@ import { SignupScreen } from './screens/SignupScreen';
 
 const postDetail = stack('post-detail/:postId', PostDetailScreen);
 
-function AppTabBar({ tabs, onTabPress }: TabBarProps) {
+function AppTabBar({ tabs: tabList, onTabPress }: TabBarProps) {
   const icons: Record<string, string> = {
-    home: '🏠',
-    search: '🔍',
-    profile: '👤',
+    home: '\u{1F3E0}',
+    search: '\u{1F50D}',
+    profile: '\u{1F464}',
   };
 
   return (
     <nav className="tab-bar">
-      {tabs.map((t) => (
+      {tabList.map((t) => (
         <button
           key={t.name}
           type="button"
           className={`tab-item ${t.isActive ? 'active' : ''}`}
           onClick={() => onTabPress(t.name)}
         >
-          <span className="tab-icon">{icons[t.name] ?? '•'}</span>
+          <span className="tab-icon">{icons[t.name] ?? '\u2022'}</span>
           <span className="tab-label">{t.name}</span>
           {t.badge != null && <span className="tab-badge">{t.badge}</span>}
         </button>
@@ -54,17 +54,25 @@ function AppErrorFallback({ error, route, retry }: ErrorFallbackProps) {
   );
 }
 
-export const router = createRouter({
-  screens: [screen('login', LoginScreen, [stack('signup', SignupScreen)])],
-  tabs: [
-    tab('home', HomeScreen, [postDetail]),
-    tab('search', SearchScreen, [postDetail]),
-    tab('profile', ProfileScreen, [stack('settings', SettingsScreen)]),
+export const router = createRouter(
+  [
+    screens([screen('login', LoginScreen, [stack('signup', SignupScreen)])], {
+      initialScreen: 'login',
+    }),
+    tabs(
+      [
+        tab('home', HomeScreen, [postDetail]),
+        tab('search', SearchScreen, [postDetail]),
+        tab('profile', ProfileScreen, [stack('settings', SettingsScreen)]),
+      ],
+      {
+        initialTab: 'home',
+        tabBar: AppTabBar,
+        errorFallback: AppErrorFallback,
+      },
+    ),
+    overlay('new-post', NewPostModal),
+    overlay('share', ShareSheet),
   ],
-  overlays: [overlay('new-post', NewPostModal), overlay('share', ShareSheet)],
-  initialTab: 'home',
-  initialScreen: 'login',
-  tabBar: AppTabBar,
-  errorFallback: AppErrorFallback,
-  urlSync: true,
-});
+  { urlSync: true },
+);
