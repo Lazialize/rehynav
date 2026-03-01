@@ -41,6 +41,7 @@ export { HistorySyncManager } from './sync/history-sync.js';
 
 // Types
 export type {
+  ErrorFallbackProps,
   NavigationProviderProps,
   ScreenComponentProps,
   ScreenOptions,

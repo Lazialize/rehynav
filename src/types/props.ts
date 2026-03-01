@@ -48,3 +48,9 @@ export interface ScreenComponentProps<
 > {
   params: Params;
 }
+
+export interface ErrorFallbackProps {
+  error: Error;
+  route: string;
+  retry: () => void;
+}
