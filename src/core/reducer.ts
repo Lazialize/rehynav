@@ -350,6 +350,28 @@ export function navigationReducer(
       };
     }
 
+    case 'POP_SCREEN_TO_ROOT': {
+      if (state.screens.length <= 1) return state;
+      return {
+        ...state,
+        screens: [state.screens[0]],
+      };
+    }
+
+    case 'REPLACE_SCREEN': {
+      if (state.screens.length === 0) return state;
+      const newEntry: StackEntry = {
+        id: action.id,
+        route: action.route,
+        params: action.params,
+        timestamp: action.timestamp,
+      };
+      return {
+        ...state,
+        screens: [...state.screens.slice(0, -1), newEntry],
+      };
+    }
+
     case 'NAVIGATE_TO_TABS': {
       const targetTab = action.tab && state.tabs[action.tab] ? action.tab : state.activeTab;
       return {

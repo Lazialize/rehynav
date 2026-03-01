@@ -819,6 +819,126 @@ describe('navigationReducer', () => {
     });
   });
 
+  describe('REPLACE_SCREEN', () => {
+    it('replaces the top entry of the screen stack', () => {
+      let state = makeStateWithScreens();
+      state = dispatch(state, {
+        type: 'PUSH_SCREEN',
+        route: 'login/signup',
+        params: { from: 'login' },
+        id: 'screen-push-1',
+        timestamp: 2000,
+      });
+      expect(state.screens).toHaveLength(2);
+
+      const next = dispatch(state, {
+        type: 'REPLACE_SCREEN',
+        route: 'login/verify',
+        params: { code: '1234' },
+        id: 'screen-replace-1',
+        timestamp: 3000,
+      });
+
+      expect(next.screens).toHaveLength(2);
+      expect(next.screens[1]).toEqual({
+        id: 'screen-replace-1',
+        route: 'login/verify',
+        params: { code: '1234' },
+        timestamp: 3000,
+      });
+    });
+
+    it('can replace the root screen entry', () => {
+      const state = makeStateWithScreens();
+      expect(state.screens).toHaveLength(1);
+
+      const next = dispatch(state, {
+        type: 'REPLACE_SCREEN',
+        route: 'login/welcome',
+        params: {},
+        id: 'screen-replace-1',
+        timestamp: 2000,
+      });
+
+      expect(next.screens).toHaveLength(1);
+      expect(next.screens[0].route).toBe('login/welcome');
+    });
+
+    it('preserves lower entries when replacing the top screen', () => {
+      let state = makeStateWithScreens();
+      const rootEntry = state.screens[0];
+      state = dispatch(state, {
+        type: 'PUSH_SCREEN',
+        route: 'login/signup',
+        params: {},
+        id: 'screen-push-1',
+        timestamp: 2000,
+      });
+
+      const next = dispatch(state, {
+        type: 'REPLACE_SCREEN',
+        route: 'login/verify',
+        params: {},
+        id: 'screen-replace-1',
+        timestamp: 3000,
+      });
+
+      expect(next.screens[0]).toBe(rootEntry);
+    });
+
+    it('is a no-op when screen stack is empty', () => {
+      const state = makeState(); // no screens
+      const next = dispatch(state, {
+        type: 'REPLACE_SCREEN',
+        route: 'login/verify',
+        params: {},
+        id: 'screen-replace-1',
+        timestamp: 2000,
+      });
+
+      expect(next).toBe(state);
+    });
+  });
+
+  describe('POP_SCREEN_TO_ROOT', () => {
+    it('resets the screen stack to root only', () => {
+      let state = makeStateWithScreens();
+      state = dispatch(state, {
+        type: 'PUSH_SCREEN',
+        route: 'login/signup',
+        params: {},
+        id: 'screen-push-1',
+        timestamp: 2000,
+      });
+      state = dispatch(state, {
+        type: 'PUSH_SCREEN',
+        route: 'login/verify',
+        params: {},
+        id: 'screen-push-2',
+        timestamp: 3000,
+      });
+      expect(state.screens).toHaveLength(3);
+
+      const next = dispatch(state, { type: 'POP_SCREEN_TO_ROOT' });
+      expect(next.screens).toHaveLength(1);
+      expect(next.screens[0].route).toBe('login');
+    });
+
+    it('is a no-op when screen stack has only the root entry', () => {
+      const state = makeStateWithScreens();
+      expect(state.screens).toHaveLength(1);
+
+      const next = dispatch(state, { type: 'POP_SCREEN_TO_ROOT' });
+      expect(next).toBe(state);
+    });
+
+    it('is a no-op when screen stack is empty', () => {
+      const state = makeState(); // no screens, screens = []
+      const next = dispatch(state, { type: 'POP_SCREEN_TO_ROOT' });
+      expect(next).toBe(state);
+    });
+  });
+
   describe('RESTORE_TO_ENTRY with screen layer', () => {
     it('restores to a screen stack entry', () => {
       let state = makeStateWithScreens();
