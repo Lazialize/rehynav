@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { overlay, stack, tab } from './route-helpers.js';
+import { overlay, screen, stack, tab } from './route-helpers.js';
 
 const DummyComponent: React.FC = () => null;
 
@@ -30,6 +30,23 @@ describe('stack', () => {
   it('accepts options', () => {
     const def = stack('detail/:id', DummyComponent, { transition: 'fade' });
     expect(def.options?.transition).toBe('fade');
+  });
+});
+
+describe('screen', () => {
+  it('creates a screen definition', () => {
+    const def = screen('login', DummyComponent);
+    expect(def._tag).toBe('screen');
+    expect(def.name).toBe('login');
+    expect(def.component).toBe(DummyComponent);
+    expect(def.children).toEqual([]);
+  });
+
+  it('creates a screen with children', () => {
+    const child = stack('signup', DummyComponent);
+    const def = screen('login', DummyComponent, [child]);
+    expect(def.children).toHaveLength(1);
+    expect(def.children[0].path).toBe('signup');
   });
 });
 

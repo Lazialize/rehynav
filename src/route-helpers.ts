@@ -67,3 +67,31 @@ export function overlay<
 >(name: N, component: C, options?: ScreenOptions): OverlayDef<N, C> {
   return { _tag: 'overlay', name, component, options };
 }
+
+// --- Screen definition (standalone screens outside tab navigation) ---
+
+export interface ScreenDef<
+  N extends string = string,
+  // biome-ignore lint/suspicious/noExplicitAny: generic constraint requires any for ComponentType
+  C extends React.ComponentType<any> = React.ComponentType<any>,
+  S extends StackDef[] = StackDef[],
+> {
+  readonly _tag: 'screen';
+  readonly name: N;
+  readonly component: C;
+  readonly children: S;
+}
+
+export function screen<
+  N extends string,
+  // biome-ignore lint/suspicious/noExplicitAny: generic constraint requires any for ComponentType
+  C extends React.ComponentType<any>,
+  S extends StackDef[],
+>(name: N, component: C, children?: [...S]): ScreenDef<N, C, S> {
+  return {
+    _tag: 'screen',
+    name,
+    component,
+    children: (children ?? []) as S,
+  };
+}

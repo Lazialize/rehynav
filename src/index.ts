@@ -34,9 +34,9 @@ export { useScrollRestoration } from './hooks/useScrollRestoration.js';
 export type { TabActions } from './hooks/useTab.js';
 export { useTab } from './hooks/useTab.js';
 
-export type { OverlayDef, StackDef, TabDef } from './route-helpers.js';
+export type { OverlayDef, ScreenDef, StackDef, TabDef } from './route-helpers.js';
 // Route helpers
-export { overlay, stack, tab } from './route-helpers.js';
+export { overlay, screen, stack, tab } from './route-helpers.js';
 
 // Sync
 export { HistorySyncManager } from './sync/history-sync.js';
