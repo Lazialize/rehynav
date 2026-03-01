@@ -160,19 +160,20 @@ describe('HistorySyncManager', () => {
       expect(goSpy).toHaveBeenCalledWith(-1);
     });
 
-    it('should pushState on tab switch (non-linear routing)', () => {
+    it('should replaceState on tab switch (tabs are parallel, not sequential)', () => {
       manager.start();
-      pushStateSpy.mockClear();
+      replaceStateSpy.mockClear();
 
       store.dispatch({ type: 'SWITCH_TAB', tab: 'search' });
 
-      expect(pushStateSpy).toHaveBeenCalledTimes(1);
-      const [historyState, , url] = pushStateSpy.mock.calls[0];
+      expect(replaceStateSpy).toHaveBeenCalledTimes(1);
+      const [historyState, , url] = replaceStateSpy.mock.calls[0];
       expect(url).toBe('/search');
       expect(historyState.activeTab).toBe('search');
+      expect(pushStateSpy).not.toHaveBeenCalled();
     });
 
-    it('should pushState on tab switch even when switching to deeper stack', () => {
+    it('should replaceState on tab switch even when switching to deeper stack', () => {
       manager.start();
 
       // Push a screen onto search tab (via PUSH which also switches tab)
@@ -187,14 +188,16 @@ describe('HistorySyncManager', () => {
       // Switch back to home (shallower stack)
       store.dispatch({ type: 'SWITCH_TAB', tab: 'home' });
 
+      replaceStateSpy.mockClear();
       pushStateSpy.mockClear();
 
-      // Switch to search (deeper stack) - should still pushState, not go()
+      // Switch to search (deeper stack) - should replaceState, not pushState or go()
       store.dispatch({ type: 'SWITCH_TAB', tab: 'search' });
 
-      expect(pushStateSpy).toHaveBeenCalledTimes(1);
-      const [historyState] = pushStateSpy.mock.calls[0];
+      expect(replaceStateSpy).toHaveBeenCalledTimes(1);
+      const [historyState] = replaceStateSpy.mock.calls[0];
       expect(historyState.activeTab).toBe('search');
+      expect(pushStateSpy).not.toHaveBeenCalled();
     });
 
     it('should preserve tab stacks during tab switching', () => {
@@ -401,7 +404,7 @@ describe('HistorySyncManager', () => {
   });
 
   describe('tab switch with overlays', () => {
-    it('should go back then pushState when tab switch closes overlays', () => {
+    it('should go back silently (replaceState) when tab switch closes overlays', () => {
       manager.start();
 
       // Open an overlay
@@ -416,14 +419,16 @@ describe('HistorySyncManager', () => {
       const goSpy = vi.spyOn(window.history, 'go');
       pushStateSpy.mockClear();
 
-      // Switch tab — should close overlay and push new tab entry
+      // Switch tab — should close overlay and replaceState (not push)
       store.dispatch({ type: 'SWITCH_TAB', tab: 'search' });
 
-      // Should go back by 1 (overlay delta) then push the new tab entry
+      // Should go back by 1 (overlay delta) then replaceState (via goBackSilently)
       expect(goSpy).toHaveBeenCalledWith(-1);
+      // pushState should NOT be called (tab switch uses replace, not push)
+      expect(pushStateSpy).not.toHaveBeenCalled();
     });
 
-    it('should go back by overlay count then pushState for multiple overlays', () => {
+    it('should go back by overlay count silently for multiple overlays', () => {
       manager.start();
 
       // Open two overlays
@@ -443,11 +448,13 @@ describe('HistorySyncManager', () => {
       });
 
       const goSpy = vi.spyOn(window.history, 'go');
+      pushStateSpy.mockClear();
 
       // Switch tab — should close both overlays
       store.dispatch({ type: 'SWITCH_TAB', tab: 'search' });
 
       expect(goSpy).toHaveBeenCalledWith(-2);
+      expect(pushStateSpy).not.toHaveBeenCalled();
     });
   });
 
@@ -465,14 +472,16 @@ describe('HistorySyncManager', () => {
       });
 
       // Switch to Search (which has stack depth 1)
-      // This should pushState, NOT go(-1)
+      // This should replaceState, NOT go() or pushState
       const goSpy = vi.spyOn(window.history, 'go');
+      replaceStateSpy.mockClear();
       pushStateSpy.mockClear();
 
       store.dispatch({ type: 'SWITCH_TAB', tab: 'search' });
 
       expect(goSpy).not.toHaveBeenCalled();
-      expect(pushStateSpy).toHaveBeenCalledTimes(1);
+      expect(pushStateSpy).not.toHaveBeenCalled();
+      expect(replaceStateSpy).toHaveBeenCalledTimes(1);
 
       // Home stack should still have 2 entries
       const state = store.getState();
@@ -517,7 +526,7 @@ describe('HistorySyncManager', () => {
       expect(state.tabs.profile.stack).toHaveLength(1);
     });
 
-    it('should pushState for SWITCH_TAB_AND_RESET', () => {
+    it('should replaceState for SWITCH_TAB_AND_RESET', () => {
       manager.start();
 
       // Push onto search first
@@ -532,13 +541,15 @@ describe('HistorySyncManager', () => {
       store.dispatch({ type: 'SWITCH_TAB', tab: 'home' });
 
       pushStateSpy.mockClear();
+      replaceStateSpy.mockClear();
       const goSpy = vi.spyOn(window.history, 'go');
 
-      // SWITCH_TAB_AND_RESET changes activeTab → should pushState
+      // SWITCH_TAB_AND_RESET changes activeTab → should replaceState
       store.dispatch({ type: 'SWITCH_TAB_AND_RESET', tab: 'search' });
 
       expect(goSpy).not.toHaveBeenCalled();
-      expect(pushStateSpy).toHaveBeenCalledTimes(1);
+      expect(pushStateSpy).not.toHaveBeenCalled();
+      expect(replaceStateSpy).toHaveBeenCalledTimes(1);
     });
   });
 
