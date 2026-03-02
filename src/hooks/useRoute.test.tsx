@@ -114,6 +114,25 @@ describe('useRoute', () => {
     expect(result.current.path).toBe('/login');
   });
 
+  it('uses RouteContext for name/params but selector for path when tabs layer is active', () => {
+    const state = createInitialState(
+      { tabs: ['home', 'search'], initialTab: 'home' },
+      testCreateId,
+      () => 1000,
+    );
+    const store = createTestStore(state);
+    const routeCtx = { route: 'home/detail', params: { id: 'abc' }, entryId: 'ctx-entry' };
+    const wrapper = createWrapper(store, routeCtx);
+
+    const { result } = renderHook(() => useRoute(), { wrapper });
+
+    // name/params come from RouteContext
+    expect(result.current.name).toBe('home/detail');
+    expect(result.current.params).toEqual({ id: 'abc' });
+    // path comes from the selector (based on actual state, not context)
+    expect(result.current.path).toBe('/home');
+  });
+
   it('falls back to tab stack when activeLayer is screens but screens stack is empty', () => {
     const state = createInitialState(
       { tabs: ['home', 'search'], initialTab: 'home' },
