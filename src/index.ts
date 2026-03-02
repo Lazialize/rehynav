@@ -1,5 +1,6 @@
 // Primary API
 
+export type { LinkProps } from './components/Link.js';
 // Components
 export { Link } from './components/Link.js';
 export type { PreloadEntry } from './components/PreloadContext.js';

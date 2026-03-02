@@ -353,6 +353,39 @@ describe('Link does not intercept modified clicks', () => {
     expect(store.getState().tabs.home.stack).toHaveLength(1);
   });
 
+  it('does not preventDefault for Alt+Click', () => {
+    const { Wrapper, store } = createTestWrapper();
+
+    render(
+      <Wrapper>
+        <Link to="home/detail">Detail</Link>
+      </Wrapper>,
+    );
+
+    const link = screen.getByRole('link', { name: 'Detail' });
+    const notPrevented = fireEvent.click(link, { altKey: true });
+
+    expect(notPrevented).toBe(true);
+    expect(store.getState().tabs.home.stack).toHaveLength(1);
+  });
+
+  it('does not navigate when user onClick calls preventDefault', () => {
+    const { Wrapper, store } = createTestWrapper();
+
+    render(
+      <Wrapper>
+        <Link to="home/detail" onClick={(e) => e.preventDefault()}>
+          Detail
+        </Link>
+      </Wrapper>,
+    );
+
+    const link = screen.getByRole('link', { name: 'Detail' });
+    fireEvent.click(link);
+
+    expect(store.getState().tabs.home.stack).toHaveLength(1);
+  });
+
   it('does not intercept click when target is set', () => {
     const { Wrapper, store } = createTestWrapper();
 

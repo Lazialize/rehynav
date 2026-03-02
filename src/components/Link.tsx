@@ -55,7 +55,7 @@ export function Link({
   };
 
   return (
-    <a href={href} onClick={handleClick} target={target} {...rest}>
+    <a {...rest} href={href} onClick={handleClick} target={target}>
       {rest.children}
     </a>
   );
