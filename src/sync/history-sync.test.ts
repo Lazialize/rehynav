@@ -389,6 +389,18 @@ describe('HistorySyncManager', () => {
         sessionStorage.setItem = originalSetItem;
       }
     });
+
+    it('should not throw when removeParams encounters sessionStorage failure', () => {
+      const originalRemoveItem = sessionStorage.removeItem.bind(sessionStorage);
+      sessionStorage.removeItem = () => {
+        throw new Error('SecurityError');
+      };
+      try {
+        expect(() => manager.removeParams('entry-1')).not.toThrow();
+      } finally {
+        sessionStorage.removeItem = originalRemoveItem;
+      }
+    });
   });
 
   describe('sessionStorage cleanup on entry removal', () => {
@@ -482,6 +494,53 @@ describe('HistorySyncManager', () => {
 
       // Root entry params should still exist
       expect(sessionStorage.getItem(`rehynav:${rootEntryId}`)).not.toBeNull();
+    });
+
+    it('should clean up sessionStorage when handlePopState triggers RESET_STATE', () => {
+      manager = new HistorySyncManager(store, '/', undefined, defaultSyncConfig);
+
+      Object.defineProperty(window, 'location', {
+        value: { pathname: '/search', search: '' },
+        writable: true,
+        configurable: true,
+      });
+
+      manager.start();
+
+      // Push entries and persist their params
+      const id1 = createId();
+      const id2 = createId();
+      store.dispatch({
+        type: 'PUSH',
+        route: 'home/detail',
+        params: { x: '1' },
+        id: id1,
+        timestamp: Date.now(),
+      });
+      store.dispatch({
+        type: 'PUSH',
+        route: 'home/settings',
+        params: { y: '2' },
+        id: id2,
+        timestamp: Date.now(),
+      });
+
+      expect(sessionStorage.getItem(`rehynav:${id1}`)).not.toBeNull();
+      expect(sessionStorage.getItem(`rehynav:${id2}`)).not.toBeNull();
+
+      // Simulate browser forward to a non-existent entry → triggers RESET_STATE
+      const event = new PopStateEvent('popstate', {
+        state: {
+          entryId: 'deleted-entry-id',
+          activeTab: 'search',
+          tabStacks: { home: ['home'], search: ['search'], profile: ['profile'] },
+        },
+      });
+      window.dispatchEvent(event);
+
+      // Old entries from before RESET_STATE should be cleaned up
+      expect(sessionStorage.getItem(`rehynav:${id1}`)).toBeNull();
+      expect(sessionStorage.getItem(`rehynav:${id2}`)).toBeNull();
     });
   });
 

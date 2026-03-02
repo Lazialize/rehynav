@@ -93,6 +93,7 @@ export class HistorySyncManager {
 
     this.isSyncing = true;
     try {
+      const prevState = this.previousState;
       this.store.dispatch({ type: 'RESTORE_TO_ENTRY', entryId: historyState.entryId });
 
       // Check if restoration succeeded by verifying the top entry matches
@@ -117,7 +118,14 @@ export class HistorySyncManager {
         window.history.replaceState(updatedHistoryState, '', undefined);
       }
 
-      this.previousState = this.store.getState();
+      // Clean up sessionStorage for entries removed during popstate handling.
+      // syncHistoryFromStateChange is skipped (isSyncing=true), so cleanup here.
+      const currentState = this.store.getState();
+      if (prevState) {
+        this.cleanupRemovedEntries(prevState, currentState);
+      }
+
+      this.previousState = currentState;
     } finally {
       this.isSyncing = false;
     }
@@ -306,6 +314,7 @@ export class HistorySyncManager {
     }
   }
 
+  /** Remove persisted params from sessionStorage for a given entry. */
   removeParams(entryId: string): void {
     try {
       sessionStorage.removeItem(`rehynav:${entryId}`);
