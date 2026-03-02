@@ -3,11 +3,18 @@ import { resolveScreenForRoute, resolveTabForRoute } from './route-utils.js';
 import { createInitialState } from './state.js';
 import type { NavigationState, Serializable, StackEntry } from './types.js';
 
+/** Normalize basePath to always end with exactly one slash (e.g. '/app' → '/app/', '/' → '/'). */
+function normalizeBasePath(basePath: string): string {
+  return `/${basePath}/`.replace(/\/+/g, '/');
+}
+
 export function stateToUrl(
   state: NavigationState,
   basePath: string = '/',
   routePatterns?: Map<string, RoutePattern>,
 ): string {
+  const normalized = normalizeBasePath(basePath);
+
   let topEntry: StackEntry;
   if (state.activeLayer === 'screens' && state.screens.length > 0) {
     topEntry = state.screens.at(-1)!;
@@ -28,9 +35,9 @@ export function stateToUrl(
         pathParams[name] = String(params[name]);
       }
     }
-    urlPath = basePath + pattern.toPath(pathParams);
+    urlPath = normalized + pattern.toPath(pathParams);
   } else {
-    urlPath = basePath + topEntry.route;
+    urlPath = normalized + topEntry.route;
   }
 
   // Remaining params (not in path) go to query string
@@ -55,7 +62,10 @@ export function urlToState(
   routePatterns?: Map<string, RoutePattern>,
 ): NavigationState {
   const parsed = new URL(url, 'http://localhost');
-  const pathname = parsed.pathname.replace(basePath, '').replace(/^\//, '');
+  const normalized = normalizeBasePath(basePath);
+  const pathname = parsed.pathname.startsWith(normalized)
+    ? parsed.pathname.slice(normalized.length)
+    : '';
 
   // Parse params from query string
   const params: Record<string, Serializable> = {};
