@@ -643,5 +643,25 @@ describe('useNavigation', () => {
 
       expect(errorSpy).not.toHaveBeenCalled();
     });
+
+    it('preload logs error for non-serializable params in development', () => {
+      process.env.NODE_ENV = 'development';
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const state = createInitialState(
+        { tabs: ['home', 'search'], initialTab: 'home' },
+        testCreateId,
+        () => 1000,
+      );
+      const store = createTestStore(state);
+      const wrapper = createWrapper(store);
+
+      const { result } = renderHook(() => useNavigation(), { wrapper });
+
+      act(() => {
+        result.current.preload('home/detail', { callback: () => {} } as any);
+      });
+
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Non-serializable value'));
+    });
   });
 });

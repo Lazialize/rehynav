@@ -152,6 +152,7 @@ export function useNavigation(): NavigationActions {
         return state.tabs[state.activeTab].stack.length > 1;
       },
       preload(to: string, params: Record<string, Serializable> = {}) {
+        validateSerializable(params as Record<string, unknown>, `preload("${to}")`);
         preloadCtx?.preload(to, params);
       },
       navigateToTabs(tab?: string) {

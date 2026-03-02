@@ -42,7 +42,9 @@ export function createRouter(routes: RouteEntry[], options?: GlobalRouterOptions
   const routePatterns = routePaths.length > 0 ? parseRoutePatterns(routePaths) : undefined;
 
   // Validate stack routes have valid tab prefixes (dev-only safety net)
-  validateStackRoutes(stackRoutes, tabNames);
+  if (process.env.NODE_ENV !== 'production') {
+    validateStackRoutes(stackRoutes, tabNames);
+  }
 
   // Validate initialTab
   if (!tabNames.includes(initialTab)) {
@@ -183,6 +185,9 @@ function parseRoutes(config: ParsedRouterConfig): {
         options: stackDef.options,
       });
       routePaths.push(fullRoute);
+      // Only tab-stack routes are collected for validateStackRoutes, which checks
+      // that the route prefix matches a registered tab name. Screen-stack routes
+      // use screen names as prefixes, so they are intentionally excluded.
       stackRoutes[fullRoute] = stackDef.options ?? {};
     }
   }
