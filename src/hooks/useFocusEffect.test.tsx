@@ -242,6 +242,8 @@ describe('useFocusEffect', () => {
     const cleanup2 = vi.fn();
     const effect2 = vi.fn(() => cleanup2);
 
+    // useCallback を意図的に使わない — レンダーごとに異なる参照を渡して
+    // コールバック変更時の挙動を検証するため
     const cb1 = () => effect1();
     const cb2 = () => effect2();
 
