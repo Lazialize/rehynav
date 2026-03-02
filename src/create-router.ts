@@ -42,7 +42,7 @@ export function createRouter(routes: RouteEntry[], options?: GlobalRouterOptions
 
   // Validate initialTab
   if (!tabNames.includes(initialTab)) {
-    const suggestion = findClosestMatch(initialTab, tabNames);
+    const suggestion = findClosestMatch(initialTab, tabNames, 2);
     const hint = suggestion ? ` Did you mean "${suggestion}"?` : '';
     throw new Error(
       `createRouter: initialTab "${initialTab}" does not match any defined tab. Available tabs: [${tabNames.join(', ')}].${hint}`,
@@ -51,7 +51,7 @@ export function createRouter(routes: RouteEntry[], options?: GlobalRouterOptions
 
   // Validate initialScreen
   if (initialScreen && !screenNames.includes(initialScreen)) {
-    const suggestion = findClosestMatch(initialScreen, screenNames);
+    const suggestion = findClosestMatch(initialScreen, screenNames, 2);
     const hint = suggestion ? ` Did you mean "${suggestion}"?` : '';
     throw new Error(
       `createRouter: initialScreen "${initialScreen}" does not match any defined screen. Available screens: [${screenNames.join(', ')}].${hint}`,

@@ -40,6 +40,15 @@ describe('createRouter validation', () => {
       expect(() => createRouter([tabsLayer])).toThrow(/home/);
     });
 
+    it('does not suggest when input is completely unrelated', () => {
+      const tabsLayer = tabs([tab('home', Stub), tab('search', Stub)], {
+        initialTab: 'xyz',
+      });
+
+      expect(() => createRouter([tabsLayer])).toThrow(/initialTab/);
+      expect(() => createRouter([tabsLayer])).not.toThrow(/Did you mean/);
+    });
+
     it('does not throw when initialTab matches a defined tab', () => {
       expect(() => createRouter([makeTabs()])).not.toThrow();
     });
@@ -62,6 +71,13 @@ describe('createRouter validation', () => {
       const screensLayer = makeScreens({ initialScreen: 'logn' });
 
       expect(() => createRouter([makeTabs(), screensLayer])).toThrow(/login/);
+    });
+
+    it('does not suggest when input is completely unrelated', () => {
+      const screensLayer = makeScreens({ initialScreen: 'xyz' });
+
+      expect(() => createRouter([makeTabs(), screensLayer])).toThrow(/initialScreen/);
+      expect(() => createRouter([makeTabs(), screensLayer])).not.toThrow(/Did you mean/);
     });
 
     it('does not throw when initialScreen matches a defined screen', () => {
