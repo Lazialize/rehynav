@@ -15,10 +15,11 @@ export function useRoute(): RouteInfoResult {
 
   // Always call useNavigationSelector to satisfy the rules of hooks
   const stateRoute = useNavigationSelector((state) => {
+    const activeTabState = state.tabs[state.activeTab];
     const topEntry =
       state.activeLayer === 'screens' && state.screens.length > 0
-        ? state.screens[state.screens.length - 1]
-        : state.tabs[state.activeTab].stack[state.tabs[state.activeTab].stack.length - 1];
+        ? state.screens.at(-1)!
+        : activeTabState.stack.at(-1)!;
     return {
       name: topEntry.route,
       params: topEntry.params,
