@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
 import type React from 'react';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createNavigationGuardRegistry,
   type NavigationGuardRegistry,
@@ -533,6 +533,115 @@ describe('useNavigation', () => {
       });
 
       expect(result.current.canGoBack()).toBe(true);
+    });
+  });
+
+  describe('serializable validation in development', () => {
+    const originalEnv = process.env.NODE_ENV;
+
+    afterEach(() => {
+      process.env.NODE_ENV = originalEnv;
+      vi.restoreAllMocks();
+    });
+
+    it('push logs error for non-serializable params in development', () => {
+      process.env.NODE_ENV = 'development';
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const state = createInitialState(
+        { tabs: ['home', 'search'], initialTab: 'home' },
+        testCreateId,
+        () => 1000,
+      );
+      const store = createTestStore(state);
+      const wrapper = createWrapper(store);
+
+      const { result } = renderHook(() => useNavigation(), { wrapper });
+
+      act(() => {
+        result.current.push('home/detail', { callback: () => {} } as any);
+      });
+
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Non-serializable value'));
+    });
+
+    it('replace logs error for non-serializable params in development', () => {
+      process.env.NODE_ENV = 'development';
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const state = createInitialState(
+        { tabs: ['home', 'search'], initialTab: 'home' },
+        testCreateId,
+        () => 1000,
+      );
+      const store = createTestStore(state);
+      const wrapper = createWrapper(store);
+
+      const { result } = renderHook(() => useNavigation(), { wrapper });
+
+      act(() => {
+        result.current.replace('home/replaced', { fn: () => {} } as any);
+      });
+
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Non-serializable value'));
+    });
+
+    it('navigateToScreen logs error for non-serializable params in development', () => {
+      process.env.NODE_ENV = 'development';
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const state = createInitialState(
+        { tabs: ['home', 'search'], initialTab: 'home' },
+        testCreateId,
+        () => 1000,
+      );
+      const store = createTestStore(state);
+      const wrapper = createWrapper(store);
+
+      const { result } = renderHook(() => useNavigation(), { wrapper });
+
+      act(() => {
+        result.current.navigateToScreen('login', { handler: () => {} } as any);
+      });
+
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Non-serializable value'));
+    });
+
+    it('push does not log error for serializable params', () => {
+      process.env.NODE_ENV = 'development';
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const state = createInitialState(
+        { tabs: ['home', 'search'], initialTab: 'home' },
+        testCreateId,
+        () => 1000,
+      );
+      const store = createTestStore(state);
+      const wrapper = createWrapper(store);
+
+      const { result } = renderHook(() => useNavigation(), { wrapper });
+
+      act(() => {
+        result.current.push('home/detail', { id: '42', count: 3 });
+      });
+
+      expect(errorSpy).not.toHaveBeenCalled();
+    });
+
+    it('push does not log error in production', () => {
+      process.env.NODE_ENV = 'production';
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const state = createInitialState(
+        { tabs: ['home', 'search'], initialTab: 'home' },
+        testCreateId,
+        () => 1000,
+      );
+      const store = createTestStore(state);
+      const wrapper = createWrapper(store);
+
+      const { result } = renderHook(() => useNavigation(), { wrapper });
+
+      act(() => {
+        result.current.push('home/detail', { callback: () => {} } as any);
+      });
+
+      expect(errorSpy).not.toHaveBeenCalled();
     });
   });
 });

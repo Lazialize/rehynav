@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
 import type React from 'react';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createNavigationGuardRegistry } from '../core/navigation-guard.js';
 import { navigationReducer } from '../core/reducer.js';
 import { createInitialState } from '../core/state.js';
@@ -187,5 +187,74 @@ describe('useOverlay', () => {
     expect(() => {
       renderHook(() => useOverlay());
     }).toThrow('useNavigationStore must be used within NavigationProvider');
+  });
+
+  describe('serializable validation in development', () => {
+    const originalEnv = process.env.NODE_ENV;
+
+    afterEach(() => {
+      process.env.NODE_ENV = originalEnv;
+      vi.restoreAllMocks();
+    });
+
+    it('open logs error for non-serializable params in development', () => {
+      process.env.NODE_ENV = 'development';
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const state = createInitialState(
+        { tabs: ['home'], initialTab: 'home' },
+        testCreateId,
+        () => 1000,
+      );
+      const store = createTestStore(state);
+      const wrapper = createWrapper(store);
+
+      const { result } = renderHook(() => useOverlay(), { wrapper });
+
+      act(() => {
+        result.current.open('confirm-dialog', { onConfirm: () => {} } as any);
+      });
+
+      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Non-serializable value'));
+    });
+
+    it('open does not log error for serializable params', () => {
+      process.env.NODE_ENV = 'development';
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const state = createInitialState(
+        { tabs: ['home'], initialTab: 'home' },
+        testCreateId,
+        () => 1000,
+      );
+      const store = createTestStore(state);
+      const wrapper = createWrapper(store);
+
+      const { result } = renderHook(() => useOverlay(), { wrapper });
+
+      act(() => {
+        result.current.open('confirm-dialog', { message: 'Are you sure?' });
+      });
+
+      expect(errorSpy).not.toHaveBeenCalled();
+    });
+
+    it('open does not log error in production', () => {
+      process.env.NODE_ENV = 'production';
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const state = createInitialState(
+        { tabs: ['home'], initialTab: 'home' },
+        testCreateId,
+        () => 1000,
+      );
+      const store = createTestStore(state);
+      const wrapper = createWrapper(store);
+
+      const { result } = renderHook(() => useOverlay(), { wrapper });
+
+      act(() => {
+        result.current.open('confirm-dialog', { onConfirm: () => {} } as any);
+      });
+
+      expect(errorSpy).not.toHaveBeenCalled();
+    });
   });
 });

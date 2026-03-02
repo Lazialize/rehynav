@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import * as validation from './core/validation.js';
 import { createRouter } from './create-router.js';
 import { overlay, screen, screens, stack, tab, tabs } from './route-helpers.js';
 
@@ -197,6 +198,36 @@ describe('createRouter validation', () => {
       const overlayDef = overlay('modal', Stub);
 
       expect(() => createRouter([tabsLayer, screensLayer, overlayDef])).not.toThrow();
+    });
+  });
+
+  describe('stack route validation', () => {
+    const originalEnv = process.env.NODE_ENV;
+
+    afterEach(() => {
+      process.env.NODE_ENV = originalEnv;
+      vi.restoreAllMocks();
+    });
+
+    it('calls validateStackRoutes with parsed stack routes and tab names', () => {
+      process.env.NODE_ENV = 'development';
+      const spy = vi.spyOn(validation, 'validateStackRoutes');
+
+      const tabsLayer = tabs(
+        [tab('home', Stub, [stack('detail', Stub)]), tab('search', Stub, [stack('results', Stub)])],
+        { initialTab: 'home' },
+      );
+
+      createRouter([tabsLayer]);
+
+      expect(spy).toHaveBeenCalledOnce();
+      expect(spy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          'home/detail': expect.anything(),
+          'search/results': expect.anything(),
+        }),
+        ['home', 'search'],
+      );
     });
   });
 });
