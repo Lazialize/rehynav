@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createRouter } from './create-router.js';
-import { screen, screens, tab, tabs } from './route-helpers.js';
+import { overlay, screen, screens, stack, tab, tabs } from './route-helpers.js';
 
 const Stub = () => null;
 
@@ -90,6 +90,113 @@ describe('createRouter validation', () => {
       const screensLayer = makeScreens();
 
       expect(() => createRouter([makeTabs(), screensLayer])).not.toThrow();
+    });
+  });
+
+  describe('duplicate route name validation', () => {
+    it('throws when two tabs share the same name', () => {
+      const tabsLayer = tabs([tab('home', Stub), tab('home', Stub)], {
+        initialTab: 'home',
+      });
+
+      expect(() => createRouter([tabsLayer])).toThrow(/duplicate route/i);
+      expect(() => createRouter([tabsLayer])).toThrow(/home/);
+    });
+
+    it('throws when a tab name conflicts with an overlay name', () => {
+      const tabsLayer = tabs([tab('home', Stub), tab('search', Stub)], {
+        initialTab: 'home',
+      });
+      const overlayDef = overlay('home', Stub);
+
+      expect(() => createRouter([tabsLayer, overlayDef])).toThrow(/duplicate route/i);
+      expect(() => createRouter([tabsLayer, overlayDef])).toThrow(/home/);
+    });
+
+    it('throws when a tab name conflicts with a screen name', () => {
+      const tabsLayer = tabs([tab('home', Stub), tab('search', Stub)], {
+        initialTab: 'home',
+      });
+      const screensLayer = screens([screen('home', Stub)]);
+
+      expect(() => createRouter([tabsLayer, screensLayer])).toThrow(/duplicate route/i);
+      expect(() => createRouter([tabsLayer, screensLayer])).toThrow(/home/);
+    });
+
+    it('throws when duplicate stack routes exist within the same tab', () => {
+      const tabsLayer = tabs(
+        [tab('home', Stub, [stack('detail', Stub), stack('detail', Stub)]), tab('search', Stub)],
+        { initialTab: 'home' },
+      );
+
+      expect(() => createRouter([tabsLayer])).toThrow(/duplicate route/i);
+      expect(() => createRouter([tabsLayer])).toThrow(/home\/detail/);
+    });
+
+    it('throws when a tab stack route conflicts with an overlay name', () => {
+      const tabsLayer = tabs([tab('home', Stub, [stack('modal', Stub)]), tab('search', Stub)], {
+        initialTab: 'home',
+      });
+      const overlayDef = overlay('home/modal', Stub);
+
+      expect(() => createRouter([tabsLayer, overlayDef])).toThrow(/duplicate route/i);
+      expect(() => createRouter([tabsLayer, overlayDef])).toThrow(/home\/modal/);
+    });
+
+    it('throws when duplicate stack routes exist within the same screen', () => {
+      const tabsLayer = makeTabs();
+      const screensLayer = screens([
+        screen('login', Stub, [stack('step', Stub), stack('step', Stub)]),
+      ]);
+
+      expect(() => createRouter([tabsLayer, screensLayer])).toThrow(/duplicate route/i);
+      expect(() => createRouter([tabsLayer, screensLayer])).toThrow(/login\/step/);
+    });
+
+    it('throws when two overlays share the same name', () => {
+      const tabsLayer = makeTabs();
+      const modal1 = overlay('modal', Stub);
+      const modal2 = overlay('modal', Stub);
+
+      expect(() => createRouter([tabsLayer, modal1, modal2])).toThrow(/duplicate route/i);
+      expect(() => createRouter([tabsLayer, modal1, modal2])).toThrow(/modal/);
+    });
+
+    it('throws when two screens share the same name', () => {
+      const tabsLayer = makeTabs();
+      const screensLayer = screens([screen('login', Stub), screen('login', Stub)]);
+
+      expect(() => createRouter([tabsLayer, screensLayer])).toThrow(/duplicate route/i);
+      expect(() => createRouter([tabsLayer, screensLayer])).toThrow(/login/);
+    });
+
+    it('throws when an overlay conflicts with a screen name', () => {
+      const tabsLayer = makeTabs();
+      const screensLayer = screens([screen('login', Stub)]);
+      const overlayDef = overlay('login', Stub);
+
+      expect(() => createRouter([tabsLayer, screensLayer, overlayDef])).toThrow(/duplicate route/i);
+      expect(() => createRouter([tabsLayer, screensLayer, overlayDef])).toThrow(/login/);
+    });
+
+    it('includes conflicting categories in the error message', () => {
+      const tabsLayer = tabs([tab('home', Stub), tab('search', Stub)], {
+        initialTab: 'home',
+      });
+      const overlayDef = overlay('home', Stub);
+
+      expect(() => createRouter([tabsLayer, overlayDef])).toThrow(/tab/i);
+      expect(() => createRouter([tabsLayer, overlayDef])).toThrow(/overlay/i);
+    });
+
+    it('does not throw when all route names are unique', () => {
+      const tabsLayer = tabs([tab('home', Stub, [stack('detail', Stub)]), tab('search', Stub)], {
+        initialTab: 'home',
+      });
+      const screensLayer = screens([screen('login', Stub)]);
+      const overlayDef = overlay('modal', Stub);
+
+      expect(() => createRouter([tabsLayer, screensLayer, overlayDef])).not.toThrow();
     });
   });
 });
