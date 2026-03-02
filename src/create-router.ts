@@ -1,4 +1,5 @@
 import { parseRoutePatterns, type RoutePattern } from './core/path-params.js';
+import { findClosestMatch } from './core/route-utils.js';
 import type { NavigationState } from './core/types.js';
 import type { OverlayDef, ScreensLayerDef, TabsLayerDef } from './route-helpers.js';
 import type { ScreenRegistration } from './store/screen-registry.js';
@@ -38,6 +39,24 @@ export function createRouter(routes: RouteEntry[], options?: GlobalRouterOptions
   const initialTab = config.tabsLayer.options.initialTab;
   const initialScreen = config.screensLayer?.options.initialScreen;
   const routePatterns = routePaths.length > 0 ? parseRoutePatterns(routePaths) : undefined;
+
+  // Validate initialTab
+  if (!tabNames.includes(initialTab)) {
+    const suggestion = findClosestMatch(initialTab, tabNames, 2);
+    const hint = suggestion ? ` Did you mean "${suggestion}"?` : '';
+    throw new Error(
+      `createRouter: initialTab "${initialTab}" does not match any defined tab. Available tabs: [${tabNames.join(', ')}].${hint}`,
+    );
+  }
+
+  // Validate initialScreen
+  if (initialScreen && !screenNames.includes(initialScreen)) {
+    const suggestion = findClosestMatch(initialScreen, screenNames, 2);
+    const hint = suggestion ? ` Did you mean "${suggestion}"?` : '';
+    throw new Error(
+      `createRouter: initialScreen "${initialScreen}" does not match any defined screen. Available screens: [${screenNames.join(', ')}].${hint}`,
+    );
+  }
 
   return {
     _internal: {
