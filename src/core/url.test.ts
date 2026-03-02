@@ -79,6 +79,16 @@ describe('stateToUrl', () => {
     expect(stateToUrl(state, '/app//')).toBe('/app/home');
   });
 
+  it('normalizes basePath without leading slash', () => {
+    const state = makeState();
+    expect(stateToUrl(state, 'app')).toBe('/app/home');
+  });
+
+  it('normalizes empty basePath', () => {
+    const state = makeState();
+    expect(stateToUrl(state, '')).toBe('/home');
+  });
+
   it('reflects the active tab top of stack', () => {
     let state = makeState();
     state = navigationReducer(state, { type: 'SWITCH_TAB', tab: 'profile' });
@@ -156,6 +166,23 @@ describe('urlToState', () => {
     const state = urlToState('/application/home', config, '/app', createId, now);
 
     // '/application/home' does not start with '/app/' boundary, so route is unknown
+    expect(state.activeTab).toBe('home');
+    expect(state.tabs.home.stack).toHaveLength(1);
+  });
+
+  it('normalizes basePath without leading slash', () => {
+    idCounter = 0;
+    const state = urlToState('/app/home/detail', config, 'app', createId, now);
+
+    expect(state.activeTab).toBe('home');
+    expect(state.tabs.home.stack).toHaveLength(2);
+    expect(state.tabs.home.stack[1].route).toBe('home/detail');
+  });
+
+  it('normalizes empty basePath', () => {
+    idCounter = 0;
+    const state = urlToState('/home', config, '', createId, now);
+
     expect(state.activeTab).toBe('home');
     expect(state.tabs.home.stack).toHaveLength(1);
   });

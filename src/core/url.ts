@@ -3,8 +3,8 @@ import { resolveScreenForRoute, resolveTabForRoute } from './route-utils.js';
 import { createInitialState } from './state.js';
 import type { NavigationState, Serializable, StackEntry } from './types.js';
 
-/** Normalize basePath to always end with exactly one slash (e.g. '/app' → '/app/', '/' → '/'). */
-function normalizeBasePath(basePath: string): string {
+/** Normalize basePath to always have a leading slash and trailing slash (e.g. 'app' → '/app/', '/app' → '/app/', '/' → '/'). */
+export function normalizeBasePath(basePath: string): string {
   return `/${basePath}/`.replace(/\/+/g, '/');
 }
 
@@ -63,6 +63,8 @@ export function urlToState(
 ): NavigationState {
   const parsed = new URL(url, 'http://localhost');
   const normalized = normalizeBasePath(basePath);
+  // Strip the normalized basePath prefix. If the URL doesn't start with it
+  // (e.g. basePath="/app" but URL="/application/home"), treat as unknown route.
   const pathname = parsed.pathname.startsWith(normalized)
     ? parsed.pathname.slice(normalized.length)
     : '';

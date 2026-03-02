@@ -1,6 +1,6 @@
 import type { RoutePattern } from '../core/path-params.js';
 import type { NavigationState, OverlayEntry, StackEntry } from '../core/types.js';
-import { stateToUrl, urlToState } from '../core/url.js';
+import { normalizeBasePath, stateToUrl, urlToState } from '../core/url.js';
 import type { NavigationStore } from '../store/navigation-store.js';
 
 interface HistoryState {
@@ -40,7 +40,7 @@ export class HistorySyncManager {
     config?: HistorySyncConfig,
   ) {
     this.store = store;
-    this.basePath = basePath;
+    this.basePath = normalizeBasePath(basePath);
     this.routePatterns = routePatterns;
     this.config = config ?? { tabs: [], initialTab: '', createId: () => '', now: () => 0 };
   }
