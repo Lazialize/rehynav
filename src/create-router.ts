@@ -126,15 +126,30 @@ function parseRoutes(config: ParsedRouterConfig): {
   const registrations: ScreenRegistration[] = [];
   const routePaths: string[] = [];
 
+  // Track route names → category for duplicate detection
+  const seen = new Map<string, string>();
+
+  function trackRoute(route: string, category: string): void {
+    const existing = seen.get(route);
+    if (existing) {
+      throw new Error(
+        `createRouter: duplicate route "${route}" found in ${existing} and ${category}. Route names must be unique across all tabs, screens, stacks, and overlays.`,
+      );
+    }
+    seen.set(route, category);
+  }
+
   // Parse screens
   if (config.screensLayer) {
     for (const screenDef of config.screensLayer.children) {
+      trackRoute(screenDef.name, 'screen');
       screenNames.push(screenDef.name);
       registrations.push({ route: screenDef.name, component: screenDef.component });
       routePaths.push(screenDef.name);
 
       for (const stackDef of screenDef.children) {
         const fullRoute = `${screenDef.name}/${stackDef.path}`;
+        trackRoute(fullRoute, 'screen-stack');
         registrations.push({
           route: fullRoute,
           component: stackDef.component,
@@ -147,12 +162,14 @@ function parseRoutes(config: ParsedRouterConfig): {
 
   // Parse tabs
   for (const tabDef of config.tabsLayer.children) {
+    trackRoute(tabDef.name, 'tab');
     tabNames.push(tabDef.name);
     registrations.push({ route: tabDef.name, component: tabDef.component });
     routePaths.push(tabDef.name);
 
     for (const stackDef of tabDef.children) {
       const fullRoute = `${tabDef.name}/${stackDef.path}`;
+      trackRoute(fullRoute, 'tab-stack');
       registrations.push({
         route: fullRoute,
         component: stackDef.component,
@@ -164,6 +181,7 @@ function parseRoutes(config: ParsedRouterConfig): {
 
   // Parse overlays
   for (const overlayDef of config.overlays) {
+    trackRoute(overlayDef.name, 'overlay');
     registrations.push({
       route: overlayDef.name,
       component: overlayDef.component,
