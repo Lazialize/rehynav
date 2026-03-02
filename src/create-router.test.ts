@@ -143,6 +143,25 @@ describe('createRouter validation', () => {
       expect(() => createRouter([tabsLayer, overlayDef])).toThrow(/home\/modal/);
     });
 
+    it('throws when duplicate stack routes exist within the same screen', () => {
+      const tabsLayer = makeTabs();
+      const screensLayer = screens([
+        screen('login', Stub, [stack('step', Stub), stack('step', Stub)]),
+      ]);
+
+      expect(() => createRouter([tabsLayer, screensLayer])).toThrow(/duplicate route/i);
+      expect(() => createRouter([tabsLayer, screensLayer])).toThrow(/login\/step/);
+    });
+
+    it('throws when two overlays share the same name', () => {
+      const tabsLayer = makeTabs();
+      const modal1 = overlay('modal', Stub);
+      const modal2 = overlay('modal', Stub);
+
+      expect(() => createRouter([tabsLayer, modal1, modal2])).toThrow(/duplicate route/i);
+      expect(() => createRouter([tabsLayer, modal1, modal2])).toThrow(/modal/);
+    });
+
     it('throws when two screens share the same name', () => {
       const tabsLayer = makeTabs();
       const screensLayer = screens([screen('login', Stub), screen('login', Stub)]);

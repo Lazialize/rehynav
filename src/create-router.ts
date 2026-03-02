@@ -127,9 +127,10 @@ function parseRoutes(config: ParsedRouterConfig): {
   const routePaths: string[] = [];
 
   // Track route names → category for duplicate detection
-  const seen = new Map<string, string>();
+  type RouteCategory = 'tab' | 'tab-stack' | 'screen' | 'screen-stack' | 'overlay';
+  const seen = new Map<string, RouteCategory>();
 
-  function trackRoute(route: string, category: string): void {
+  function trackRoute(route: string, category: RouteCategory): void {
     const existing = seen.get(route);
     if (existing) {
       throw new Error(
