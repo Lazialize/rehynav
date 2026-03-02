@@ -3,6 +3,7 @@ import { useOptionalPreloadContext } from '../components/PreloadContext.js';
 import { createId } from '../core/id.js';
 import { getCurrentRouteInfo } from '../core/route-utils.js';
 import type { RouteInfo, Serializable } from '../core/types.js';
+import { validateSerializable } from '../core/validation.js';
 import { useGuardRegistry, useNavigationStore } from './context.js';
 
 export interface NavigationActions {
@@ -25,6 +26,7 @@ export function useNavigation(): NavigationActions {
   return useMemo(
     () => ({
       push(to: string, params: Record<string, Serializable> = {}) {
+        validateSerializable(params as Record<string, unknown>, `push("${to}")`);
         const state = store.getState();
         const from = getCurrentRouteInfo(state);
         const toInfo: RouteInfo = { route: to, params };
@@ -88,6 +90,7 @@ export function useNavigation(): NavigationActions {
         }
       },
       replace(to: string, params: Record<string, Serializable> = {}) {
+        validateSerializable(params as Record<string, unknown>, `replace("${to}")`);
         const state = store.getState();
         const from = getCurrentRouteInfo(state);
         const toInfo: RouteInfo = { route: to, params };
@@ -149,6 +152,7 @@ export function useNavigation(): NavigationActions {
         return state.tabs[state.activeTab].stack.length > 1;
       },
       preload(to: string, params: Record<string, Serializable> = {}) {
+        validateSerializable(params as Record<string, unknown>, `preload("${to}")`);
         preloadCtx?.preload(to, params);
       },
       navigateToTabs(tab?: string) {
@@ -159,6 +163,7 @@ export function useNavigation(): NavigationActions {
         store.dispatch({ type: 'NAVIGATE_TO_TABS', tab });
       },
       navigateToScreen(route: string, params: Record<string, Serializable> = {}) {
+        validateSerializable(params as Record<string, unknown>, `navigateToScreen("${route}")`);
         const from = getCurrentRouteInfo(store.getState());
         const toInfo: RouteInfo = { route, params };
         if (!guardRegistry.check(from, toInfo, 'push')) return;

@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { createId } from '../core/id.js';
 import { getCurrentRouteInfo } from '../core/route-utils.js';
 import type { Serializable } from '../core/types.js';
+import { validateSerializable } from '../core/validation.js';
 import { useGuardRegistry, useNavigationStore } from './context.js';
 import { useNavigationSelector } from './useNavigationSelector.js';
 
@@ -21,6 +22,7 @@ export function useOverlay(): OverlayActions {
   return useMemo(
     () => ({
       open(name: string, params: Record<string, Serializable> = {}) {
+        validateSerializable(params as Record<string, unknown>, `overlay.open("${name}")`);
         const state = store.getState();
         const from = getCurrentRouteInfo(state);
         const to = { route: name, params };

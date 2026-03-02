@@ -1,6 +1,7 @@
 import { parseRoutePatterns, type RoutePattern } from './core/path-params.js';
 import { findClosestMatch } from './core/route-utils.js';
 import type { NavigationState } from './core/types.js';
+import { validateStackRoutes } from './core/validation.js';
 import type { OverlayDef, ScreensLayerDef, TabsLayerDef } from './route-helpers.js';
 import type { ScreenRegistration } from './store/screen-registry.js';
 
@@ -35,10 +36,15 @@ export interface RouterInstance {
 
 export function createRouter(routes: RouteEntry[], options?: GlobalRouterOptions): RouterInstance {
   const config = buildParsedConfig(routes, options);
-  const { tabNames, screenNames, registrations, routePaths } = parseRoutes(config);
+  const { tabNames, screenNames, registrations, routePaths, stackRoutes } = parseRoutes(config);
   const initialTab = config.tabsLayer.options.initialTab;
   const initialScreen = config.screensLayer?.options.initialScreen;
   const routePatterns = routePaths.length > 0 ? parseRoutePatterns(routePaths) : undefined;
+
+  // Validate stack routes have valid tab prefixes (dev-only safety net)
+  if (process.env.NODE_ENV !== 'production') {
+    validateStackRoutes(stackRoutes, tabNames);
+  }
 
   // Validate initialTab
   if (!tabNames.includes(initialTab)) {
@@ -120,11 +126,13 @@ function parseRoutes(config: ParsedRouterConfig): {
   screenNames: string[];
   registrations: ScreenRegistration[];
   routePaths: string[];
+  stackRoutes: Record<string, unknown>;
 } {
   const tabNames: string[] = [];
   const screenNames: string[] = [];
   const registrations: ScreenRegistration[] = [];
   const routePaths: string[] = [];
+  const stackRoutes: Record<string, unknown> = {};
 
   // Track route names → category for duplicate detection
   type RouteCategory = 'tab' | 'tab-stack' | 'screen' | 'screen-stack' | 'overlay';
@@ -177,6 +185,10 @@ function parseRoutes(config: ParsedRouterConfig): {
         options: stackDef.options,
       });
       routePaths.push(fullRoute);
+      // Only tab-stack routes are collected for validateStackRoutes, which checks
+      // that the route prefix matches a registered tab name. Screen-stack routes
+      // use screen names as prefixes, so they are intentionally excluded.
+      stackRoutes[fullRoute] = stackDef.options ?? {};
     }
   }
 
@@ -190,5 +202,5 @@ function parseRoutes(config: ParsedRouterConfig): {
     });
   }
 
-  return { tabNames, screenNames, registrations, routePaths };
+  return { tabNames, screenNames, registrations, routePaths, stackRoutes };
 }
