@@ -1,8 +1,16 @@
-import { type RefObject, useContext, useRef } from 'react';
+import { type RefObject, useContext, useEffect, useRef } from 'react';
 import { RouteContext } from './context.js';
 import { useFocusEffect } from './useFocusEffect.js';
 
 const scrollPositions = new Map<string, number>();
+
+export function removeScrollPosition(entryId: string): void {
+  scrollPositions.delete(entryId);
+}
+
+export function clearAllScrollPositions(): void {
+  scrollPositions.clear();
+}
 
 export function useScrollRestoration(ref: RefObject<HTMLElement | null>): void {
   const routeCtx = useContext(RouteContext);
@@ -28,4 +36,14 @@ export function useScrollRestoration(ref: RefObject<HTMLElement | null>): void {
       }
     };
   });
+
+  // Clean up scroll position when component unmounts (entry removed from state)
+  useEffect(() => {
+    const id = entryId;
+    return () => {
+      if (id) {
+        scrollPositions.delete(id);
+      }
+    };
+  }, [entryId]);
 }

@@ -369,6 +369,14 @@ describe('HistorySyncManager', () => {
       expect(stored).toBe(JSON.stringify({ foo: 'bar' }));
     });
 
+    it('should remove params from sessionStorage via removeParams', () => {
+      manager.persistParams('entry-1', { foo: 'bar' });
+      expect(sessionStorage.getItem('rehynav:entry-1')).not.toBeNull();
+
+      manager.removeParams('entry-1');
+      expect(sessionStorage.getItem('rehynav:entry-1')).toBeNull();
+    });
+
     it('should not throw when sessionStorage fails', () => {
       // Override sessionStorage with a throwing implementation
       const originalSetItem = sessionStorage.setItem.bind(sessionStorage);
@@ -380,6 +388,100 @@ describe('HistorySyncManager', () => {
       } finally {
         sessionStorage.setItem = originalSetItem;
       }
+    });
+  });
+
+  describe('sessionStorage cleanup on entry removal', () => {
+    it('should remove sessionStorage entry when stack entry is popped', () => {
+      manager.start();
+
+      // Push to create a second entry
+      const pushedId = createId();
+      store.dispatch({
+        type: 'PUSH',
+        route: 'home/detail',
+        params: { id: '42' },
+        id: pushedId,
+        timestamp: Date.now(),
+      });
+
+      // Verify params were persisted
+      expect(sessionStorage.getItem(`rehynav:${pushedId}`)).not.toBeNull();
+
+      // Pop the entry
+      store.dispatch({ type: 'POP' });
+
+      // sessionStorage entry should be cleaned up
+      expect(sessionStorage.getItem(`rehynav:${pushedId}`)).toBeNull();
+    });
+
+    it('should remove sessionStorage entry when overlay is closed', () => {
+      manager.start();
+
+      const overlayId = createId();
+      store.dispatch({
+        type: 'OPEN_OVERLAY',
+        route: 'dialog',
+        params: { message: 'hello' },
+        id: overlayId,
+        timestamp: Date.now(),
+      });
+
+      expect(sessionStorage.getItem(`rehynav:${overlayId}`)).not.toBeNull();
+
+      store.dispatch({ type: 'CLOSE_OVERLAY' });
+
+      expect(sessionStorage.getItem(`rehynav:${overlayId}`)).toBeNull();
+    });
+
+    it('should remove sessionStorage entries when POP_TO_ROOT removes multiple entries', () => {
+      manager.start();
+
+      const id1 = createId();
+      const id2 = createId();
+      store.dispatch({
+        type: 'PUSH',
+        route: 'home/detail',
+        params: {},
+        id: id1,
+        timestamp: Date.now(),
+      });
+      store.dispatch({
+        type: 'PUSH',
+        route: 'home/settings',
+        params: {},
+        id: id2,
+        timestamp: Date.now(),
+      });
+
+      expect(sessionStorage.getItem(`rehynav:${id1}`)).not.toBeNull();
+      expect(sessionStorage.getItem(`rehynav:${id2}`)).not.toBeNull();
+
+      store.dispatch({ type: 'POP_TO_ROOT' });
+
+      expect(sessionStorage.getItem(`rehynav:${id1}`)).toBeNull();
+      expect(sessionStorage.getItem(`rehynav:${id2}`)).toBeNull();
+    });
+
+    it('should not remove sessionStorage entries for entries still in state', () => {
+      manager.start();
+
+      const rootEntryId = store.getState().tabs.home.stack[0].id;
+
+      const pushedId = createId();
+      store.dispatch({
+        type: 'PUSH',
+        route: 'home/detail',
+        params: {},
+        id: pushedId,
+        timestamp: Date.now(),
+      });
+
+      // Pop: removes pushedId but root remains
+      store.dispatch({ type: 'POP' });
+
+      // Root entry params should still exist
+      expect(sessionStorage.getItem(`rehynav:${rootEntryId}`)).not.toBeNull();
     });
   });
 

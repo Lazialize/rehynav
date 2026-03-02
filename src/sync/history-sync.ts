@@ -123,11 +123,39 @@ export class HistorySyncManager {
     }
   }
 
+  private collectEntryIds(state: NavigationState): Set<string> {
+    const ids = new Set<string>();
+    for (const tabState of Object.values(state.tabs)) {
+      for (const entry of tabState.stack) {
+        ids.add(entry.id);
+      }
+    }
+    for (const entry of state.screens) {
+      ids.add(entry.id);
+    }
+    for (const entry of state.overlays) {
+      ids.add(entry.id);
+    }
+    return ids;
+  }
+
+  private cleanupRemovedEntries(prev: NavigationState, current: NavigationState): void {
+    const prevIds = this.collectEntryIds(prev);
+    const currentIds = this.collectEntryIds(current);
+    for (const id of prevIds) {
+      if (!currentIds.has(id)) {
+        this.removeParams(id);
+      }
+    }
+  }
+
   private syncHistoryFromStateChange(): void {
     const currentState = this.store.getState();
     const prev = this.previousState;
 
     if (!prev) return;
+
+    this.cleanupRemovedEntries(prev, currentState);
 
     const url = stateToUrl(currentState, this.basePath, this.routePatterns);
     const historyState = this.createHistoryState(currentState);
@@ -275,6 +303,14 @@ export class HistorySyncManager {
       sessionStorage.setItem(key, JSON.stringify(params));
     } catch {
       // sessionStorage may be unavailable or full; silently ignore
+    }
+  }
+
+  removeParams(entryId: string): void {
+    try {
+      sessionStorage.removeItem(`rehynav:${entryId}`);
+    } catch {
+      // sessionStorage may be unavailable; silently ignore
     }
   }
 
