@@ -53,7 +53,6 @@ export function useScrollRestoration(ref: RefObject<HTMLElement | null>): void {
           scrollPositions.set(id, ref.current.scrollTop);
         }
       };
-      // biome-ignore lint/correctness/useExhaustiveDependencies: ref is a stable RefObject; entryIdRef is a mutable ref read inside the callback
     }, [ref]),
   );
 
