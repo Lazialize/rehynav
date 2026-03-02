@@ -69,6 +69,26 @@ describe('stateToUrl', () => {
     expect(stateToUrl(state, '/app/')).toBe('/app/home');
   });
 
+  it('normalizes basePath without trailing slash', () => {
+    const state = makeState();
+    expect(stateToUrl(state, '/app')).toBe('/app/home');
+  });
+
+  it('normalizes basePath with duplicate slashes', () => {
+    const state = makeState();
+    expect(stateToUrl(state, '/app//')).toBe('/app/home');
+  });
+
+  it('normalizes basePath without leading slash', () => {
+    const state = makeState();
+    expect(stateToUrl(state, 'app')).toBe('/app/home');
+  });
+
+  it('normalizes empty basePath', () => {
+    const state = makeState();
+    expect(stateToUrl(state, '')).toBe('/home');
+  });
+
   it('reflects the active tab top of stack', () => {
     let state = makeState();
     state = navigationReducer(state, { type: 'SWITCH_TAB', tab: 'profile' });
@@ -129,6 +149,42 @@ describe('urlToState', () => {
     expect(state.activeTab).toBe('home');
     expect(state.tabs.home.stack).toHaveLength(2);
     expect(state.tabs.home.stack[1].route).toBe('home/detail');
+  });
+
+  it('normalizes basePath without trailing slash', () => {
+    idCounter = 0;
+    const state = urlToState('/app/home/detail', config, '/app', createId, now);
+
+    expect(state.activeTab).toBe('home');
+    expect(state.tabs.home.stack).toHaveLength(2);
+    expect(state.tabs.home.stack[1].route).toBe('home/detail');
+  });
+
+  it('does not strip basePath from partial matches', () => {
+    idCounter = 0;
+    // basePath is '/app' but URL path is '/application/home' — should NOT strip '/app'
+    const state = urlToState('/application/home', config, '/app', createId, now);
+
+    // '/application/home' does not start with '/app/' boundary, so route is unknown
+    expect(state.activeTab).toBe('home');
+    expect(state.tabs.home.stack).toHaveLength(1);
+  });
+
+  it('normalizes basePath without leading slash', () => {
+    idCounter = 0;
+    const state = urlToState('/app/home/detail', config, 'app', createId, now);
+
+    expect(state.activeTab).toBe('home');
+    expect(state.tabs.home.stack).toHaveLength(2);
+    expect(state.tabs.home.stack[1].route).toBe('home/detail');
+  });
+
+  it('normalizes empty basePath', () => {
+    idCounter = 0;
+    const state = urlToState('/home', config, '', createId, now);
+
+    expect(state.activeTab).toBe('home');
+    expect(state.tabs.home.stack).toHaveLength(1);
   });
 
   it('handles empty URL (root)', () => {
