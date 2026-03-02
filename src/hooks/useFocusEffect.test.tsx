@@ -226,4 +226,40 @@ describe('useFocusEffect', () => {
 
     expect(cleanup).toHaveBeenCalledTimes(1);
   });
+
+  it('re-runs effect when callback reference changes while focused', () => {
+    const state = createInitialState(
+      { tabs: ['home'], initialTab: 'home' },
+      testCreateId,
+      () => 1000,
+    );
+    const store = createTestStore(state);
+    const topEntryId = store.getState().tabs.home.stack[0].id;
+    const wrapper = createWrapper(store, { route: 'home', params: {}, entryId: topEntryId });
+
+    const cleanup1 = vi.fn();
+    const effect1 = vi.fn(() => cleanup1);
+    const cleanup2 = vi.fn();
+    const effect2 = vi.fn(() => cleanup2);
+
+    // useCallback を意図的に使わない — レンダーごとに異なる参照を渡して
+    // コールバック変更時の挙動を検証するため
+    const cb1 = () => effect1();
+    const cb2 = () => effect2();
+
+    const { rerender } = renderHook(
+      ({ cb }: { cb: () => (() => void) | undefined }) => useFocusEffect(cb),
+      { wrapper, initialProps: { cb: cb1 } },
+    );
+
+    expect(effect1).toHaveBeenCalledTimes(1);
+    expect(effect2).not.toHaveBeenCalled();
+
+    // Change the callback reference while focused
+    rerender({ cb: cb2 });
+
+    // Old cleanup should have been called, new effect should have been called
+    expect(cleanup1).toHaveBeenCalledTimes(1);
+    expect(effect2).toHaveBeenCalledTimes(1);
+  });
 });
