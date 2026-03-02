@@ -1,6 +1,6 @@
 {
   "name": "rehynav",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Mobile-first React navigation with tab-based independent stacks for web + hybrid apps (Capacitor/Tauri).",
   "type": "module",
   "main": "./dist/index.cjs",
