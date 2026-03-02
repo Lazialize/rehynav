@@ -38,7 +38,11 @@ export type { OverlayActions } from './hooks/useOverlay.js';
 export { useOverlay } from './hooks/useOverlay.js';
 export type { RouteInfoResult } from './hooks/useRoute.js';
 export { useRoute } from './hooks/useRoute.js';
-export { useScrollRestoration } from './hooks/useScrollRestoration.js';
+export {
+  clearAllScrollPositions,
+  removeScrollPosition,
+  useScrollRestoration,
+} from './hooks/useScrollRestoration.js';
 export type { TabActions } from './hooks/useTab.js';
 export { useTab } from './hooks/useTab.js';
 
