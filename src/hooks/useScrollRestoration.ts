@@ -1,4 +1,4 @@
-import { type RefObject, useContext, useEffect, useRef } from 'react';
+import { type RefObject, useCallback, useContext, useEffect, useRef } from 'react';
 import type { NavigationState } from '../core/types.js';
 import { NavigationStoreContext, RouteContext } from './context.js';
 import { useFocusEffect } from './useFocusEffect.js';
@@ -35,24 +35,27 @@ export function useScrollRestoration(ref: RefObject<HTMLElement | null>): void {
   const entryIdRef = useRef(entryId);
   entryIdRef.current = entryId;
 
-  useFocusEffect(() => {
-    // On focus: restore scroll position
-    const id = entryIdRef.current;
-    if (id && ref.current) {
-      const saved = scrollPositions.get(id);
-      if (saved !== undefined) {
-        ref.current.scrollTo({ top: saved, behavior: 'instant' });
-      }
-    }
-
-    // On blur: save scroll position
-    return () => {
+  useFocusEffect(
+    useCallback(() => {
+      // On focus: restore scroll position
       const id = entryIdRef.current;
       if (id && ref.current) {
-        scrollPositions.set(id, ref.current.scrollTop);
+        const saved = scrollPositions.get(id);
+        if (saved !== undefined) {
+          ref.current.scrollTo({ top: saved, behavior: 'instant' });
+        }
       }
-    };
-  });
+
+      // On blur: save scroll position
+      return () => {
+        const id = entryIdRef.current;
+        if (id && ref.current) {
+          scrollPositions.set(id, ref.current.scrollTop);
+        }
+      };
+      // biome-ignore lint/correctness/useExhaustiveDependencies: ref is a stable RefObject; entryIdRef is a mutable ref read inside the callback
+    }, [ref]),
+  );
 
   // Clean up scroll position when component unmounts, but only if the
   // entry was actually removed from navigation state. This prevents

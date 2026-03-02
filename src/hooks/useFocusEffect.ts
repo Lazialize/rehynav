@@ -7,7 +7,6 @@ export function useFocusEffect(callback: EffectCallback): void {
   const isFocused = useIsFocused();
   const cleanupRef = useRef<(() => void) | undefined>(undefined);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: callback is intentionally omitted — callers must wrap in useCallback
   useEffect(() => {
     if (isFocused) {
       cleanupRef.current = callback();
@@ -24,5 +23,5 @@ export function useFocusEffect(callback: EffectCallback): void {
         cleanupRef.current = undefined;
       }
     };
-  }, [isFocused]);
+  }, [isFocused, callback]);
 }
