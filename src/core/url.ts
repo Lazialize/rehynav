@@ -10,10 +10,10 @@ export function stateToUrl(
 ): string {
   let topEntry: StackEntry;
   if (state.activeLayer === 'screens' && state.screens.length > 0) {
-    topEntry = state.screens[state.screens.length - 1];
+    topEntry = state.screens.at(-1)!;
   } else {
     const activeTabState = state.tabs[state.activeTab];
-    topEntry = activeTabState.stack[activeTabState.stack.length - 1];
+    topEntry = activeTabState.stack.at(-1)!;
   }
 
   const params = topEntry.params;
