@@ -5,11 +5,12 @@ import {
   createNavigationGuardRegistry,
   type NavigationGuardRegistry,
 } from '../core/navigation-guard.js';
+import { parseRoutePatterns, type RoutePattern } from '../core/path-params.js';
 import { navigationReducer } from '../core/reducer.js';
 import { createInitialState } from '../core/state.js';
 import type { NavigationAction, NavigationState } from '../core/types.js';
 import type { NavigationStoreForHooks } from './context.js';
-import { GuardRegistryContext, NavigationStoreContext } from './context.js';
+import { GuardRegistryContext, NavigationStoreContext, RoutePatternsContext } from './context.js';
 import { useNavigation } from './useNavigation.js';
 
 function createTestStore(initialState: NavigationState): NavigationStoreForHooks {
@@ -41,12 +42,19 @@ function testCreateId(): string {
   return `test-id-${++idCounter}`;
 }
 
-function createWrapper(store: NavigationStoreForHooks, guardRegistry?: NavigationGuardRegistry) {
+function createWrapper(
+  store: NavigationStoreForHooks,
+  guardRegistry?: NavigationGuardRegistry,
+  routePatterns?: Map<string, RoutePattern> | null,
+) {
   const registry = guardRegistry ?? createNavigationGuardRegistry();
+  const patterns = routePatterns ?? null;
   return function Wrapper({ children }: { children: React.ReactNode }) {
     return (
       <NavigationStoreContext.Provider value={store}>
-        <GuardRegistryContext.Provider value={registry}>{children}</GuardRegistryContext.Provider>
+        <GuardRegistryContext.Provider value={registry}>
+          <RoutePatternsContext.Provider value={patterns}>{children}</RoutePatternsContext.Provider>
+        </GuardRegistryContext.Provider>
       </NavigationStoreContext.Provider>
     );
   };
@@ -662,6 +670,168 @@ describe('useNavigation', () => {
       });
 
       expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Non-serializable value'));
+    });
+  });
+
+  describe('resolved path navigation', () => {
+    const routePatterns = parseRoutePatterns([
+      'home',
+      'home/detail/:id',
+      'search',
+      'search/results/:query',
+      'profile',
+    ]);
+
+    it('push with resolved path extracts route and params', () => {
+      const state = createInitialState(
+        { tabs: ['home', 'search', 'profile'], initialTab: 'home' },
+        testCreateId,
+        () => 1000,
+      );
+      const store = createTestStore(state);
+      const wrapper = createWrapper(store, undefined, routePatterns);
+
+      const { result } = renderHook(() => useNavigation(), { wrapper });
+
+      act(() => {
+        result.current.push('/home/detail/42');
+      });
+
+      const newState = store.getState();
+      expect(newState.tabs.home.stack).toHaveLength(2);
+      expect(newState.tabs.home.stack[1].route).toBe('home/detail/:id');
+      expect(newState.tabs.home.stack[1].params).toEqual({ id: '42' });
+    });
+
+    it('replace with resolved path extracts route and params', () => {
+      const state = createInitialState(
+        { tabs: ['home', 'search', 'profile'], initialTab: 'home' },
+        testCreateId,
+        () => 1000,
+      );
+      const store = createTestStore(state);
+      const wrapper = createWrapper(store, undefined, routePatterns);
+
+      const { result } = renderHook(() => useNavigation(), { wrapper });
+
+      act(() => {
+        result.current.replace('/home/detail/99');
+      });
+
+      const newState = store.getState();
+      expect(newState.tabs.home.stack).toHaveLength(1);
+      expect(newState.tabs.home.stack[0].route).toBe('home/detail/:id');
+      expect(newState.tabs.home.stack[0].params).toEqual({ id: '99' });
+    });
+
+    it('push with resolved path to non-parameterized route works', () => {
+      const state = createInitialState(
+        { tabs: ['home', 'search', 'profile'], initialTab: 'home' },
+        testCreateId,
+        () => 1000,
+      );
+      const store = createTestStore(state);
+      const wrapper = createWrapper(store, undefined, routePatterns);
+
+      const { result } = renderHook(() => useNavigation(), { wrapper });
+
+      act(() => {
+        result.current.push('/search');
+      });
+
+      const newState = store.getState();
+      expect(newState.activeTab).toBe('search');
+      expect(newState.tabs.search.stack).toHaveLength(2);
+      expect(newState.tabs.search.stack[1].route).toBe('search');
+      expect(newState.tabs.search.stack[1].params).toEqual({});
+    });
+
+    it('push with unmatched resolved path warns and does nothing', () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const state = createInitialState(
+        { tabs: ['home', 'search', 'profile'], initialTab: 'home' },
+        testCreateId,
+        () => 1000,
+      );
+      const store = createTestStore(state);
+      const wrapper = createWrapper(store, undefined, routePatterns);
+
+      const { result } = renderHook(() => useNavigation(), { wrapper });
+
+      act(() => {
+        result.current.push('/unknown/route');
+      });
+
+      expect(store.getState().tabs.home.stack).toHaveLength(1);
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('No route pattern matched'));
+      warnSpy.mockRestore();
+    });
+
+    it('push with resolved path without routePatterns context warns', () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const state = createInitialState(
+        { tabs: ['home', 'search', 'profile'], initialTab: 'home' },
+        testCreateId,
+        () => 1000,
+      );
+      const store = createTestStore(state);
+      const wrapper = createWrapper(store, undefined, null);
+
+      const { result } = renderHook(() => useNavigation(), { wrapper });
+
+      act(() => {
+        result.current.push('/home/detail/42');
+      });
+
+      expect(store.getState().tabs.home.stack).toHaveLength(1);
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('route patterns are not available'),
+      );
+      warnSpy.mockRestore();
+    });
+
+    it('navigateToScreen with resolved path extracts route and params', () => {
+      const screenPatterns = parseRoutePatterns(['login', 'login/verify/:code']);
+      const state = createInitialState(
+        { tabs: ['home', 'search'], initialTab: 'home' },
+        testCreateId,
+        () => 1000,
+      );
+      const store = createTestStore(state);
+      const wrapper = createWrapper(store, undefined, screenPatterns);
+
+      const { result } = renderHook(() => useNavigation(), { wrapper });
+
+      act(() => {
+        result.current.navigateToScreen('/login/verify/abc123');
+      });
+
+      const newState = store.getState();
+      expect(newState.activeLayer).toBe('screens');
+      expect(newState.screens).toHaveLength(1);
+      expect(newState.screens[0].route).toBe('login/verify/:code');
+      expect(newState.screens[0].params).toEqual({ code: 'abc123' });
+    });
+
+    it('push with route pattern name still works when routePatterns provided', () => {
+      const state = createInitialState(
+        { tabs: ['home', 'search', 'profile'], initialTab: 'home' },
+        testCreateId,
+        () => 1000,
+      );
+      const store = createTestStore(state);
+      const wrapper = createWrapper(store, undefined, routePatterns);
+
+      const { result } = renderHook(() => useNavigation(), { wrapper });
+
+      act(() => {
+        result.current.push('home/detail/:id', { id: '42' });
+      });
+
+      const newState = store.getState();
+      expect(newState.tabs.home.stack).toHaveLength(2);
+      expect(newState.tabs.home.stack[1].route).toBe('home/detail/:id');
+      expect(newState.tabs.home.stack[1].params).toEqual({ id: '42' });
     });
   });
 });

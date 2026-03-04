@@ -1,10 +1,11 @@
-import { useMemo } from 'react';
+import { useContext, useMemo } from 'react';
 import { useOptionalPreloadContext } from '../components/PreloadContext.js';
 import { createId } from '../core/id.js';
+import { matchUrl } from '../core/path-params.js';
 import { getCurrentRouteInfo } from '../core/route-utils.js';
 import type { RouteInfo, Serializable } from '../core/types.js';
 import { validateSerializable } from '../core/validation.js';
-import { useGuardRegistry, useNavigationStore } from './context.js';
+import { RoutePatternsContext, useGuardRegistry, useNavigationStore } from './context.js';
 
 export interface NavigationActions {
   push(to: string, params?: Record<string, Serializable>): void;
@@ -22,29 +23,67 @@ export function useNavigation(): NavigationActions {
   const store = useNavigationStore();
   const guardRegistry = useGuardRegistry();
   const preloadCtx = useOptionalPreloadContext();
+  const routePatterns = useContext(RoutePatternsContext);
 
-  return useMemo(
-    () => ({
+  return useMemo(() => {
+    function resolvePath(
+      to: string,
+      params: Record<string, Serializable>,
+    ): { route: string; params: Record<string, Serializable> } | null {
+      if (!to.startsWith('/')) {
+        return { route: to, params };
+      }
+
+      if (!routePatterns) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn(
+            `[rehynav] Resolved path "${to}" was used, but route patterns are not available. ` +
+              'Wrap your app with RouterProvider to enable path-based navigation.',
+          );
+        }
+        return null;
+      }
+
+      const pathname = to.slice(1); // strip leading '/'
+      const matched = matchUrl(pathname, routePatterns);
+      if (!matched) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn(
+            `[rehynav] No route pattern matched the path "${to}". ` +
+              'Check that the path matches a registered route.',
+          );
+        }
+        return null;
+      }
+
+      return { route: matched.route, params: matched.params };
+    }
+
+    return {
       push(to: string, params: Record<string, Serializable> = {}) {
-        validateSerializable(params as Record<string, unknown>, `push("${to}")`);
+        const resolved = resolvePath(to, params);
+        if (!resolved) return;
+        const { route, params: resolvedParams } = resolved;
+
+        validateSerializable(resolvedParams as Record<string, unknown>, `push("${to}")`);
         const state = store.getState();
         const from = getCurrentRouteInfo(state);
-        const toInfo: RouteInfo = { route: to, params };
+        const toInfo: RouteInfo = { route, params: resolvedParams };
         if (!guardRegistry.check(from, toInfo, 'push')) return;
 
         if (state.activeLayer === 'screens') {
           store.dispatch({
             type: 'PUSH_SCREEN',
-            route: to,
-            params,
+            route,
+            params: resolvedParams,
             id: createId(),
             timestamp: Date.now(),
           });
         } else {
           store.dispatch({
             type: 'PUSH',
-            route: to,
-            params,
+            route,
+            params: resolvedParams,
             id: createId(),
             timestamp: Date.now(),
           });
@@ -90,25 +129,29 @@ export function useNavigation(): NavigationActions {
         }
       },
       replace(to: string, params: Record<string, Serializable> = {}) {
-        validateSerializable(params as Record<string, unknown>, `replace("${to}")`);
+        const resolved = resolvePath(to, params);
+        if (!resolved) return;
+        const { route, params: resolvedParams } = resolved;
+
+        validateSerializable(resolvedParams as Record<string, unknown>, `replace("${to}")`);
         const state = store.getState();
         const from = getCurrentRouteInfo(state);
-        const toInfo: RouteInfo = { route: to, params };
+        const toInfo: RouteInfo = { route, params: resolvedParams };
         if (!guardRegistry.check(from, toInfo, 'replace')) return;
 
         if (state.activeLayer === 'screens') {
           store.dispatch({
             type: 'REPLACE_SCREEN',
-            route: to,
-            params,
+            route,
+            params: resolvedParams,
             id: createId(),
             timestamp: Date.now(),
           });
         } else {
           store.dispatch({
             type: 'REPLACE',
-            route: to,
-            params,
+            route,
+            params: resolvedParams,
             id: createId(),
             timestamp: Date.now(),
           });
@@ -152,8 +195,12 @@ export function useNavigation(): NavigationActions {
         return state.tabs[state.activeTab].stack.length > 1;
       },
       preload(to: string, params: Record<string, Serializable> = {}) {
-        validateSerializable(params as Record<string, unknown>, `preload("${to}")`);
-        preloadCtx?.preload(to, params);
+        const resolved = resolvePath(to, params);
+        if (!resolved) return;
+        const { route, params: resolvedParams } = resolved;
+
+        validateSerializable(resolvedParams as Record<string, unknown>, `preload("${to}")`);
+        preloadCtx?.preload(route, resolvedParams);
       },
       navigateToTabs(tab?: string) {
         const from = getCurrentRouteInfo(store.getState());
@@ -163,19 +210,25 @@ export function useNavigation(): NavigationActions {
         store.dispatch({ type: 'NAVIGATE_TO_TABS', tab });
       },
       navigateToScreen(route: string, params: Record<string, Serializable> = {}) {
-        validateSerializable(params as Record<string, unknown>, `navigateToScreen("${route}")`);
+        const resolved = resolvePath(route, params);
+        if (!resolved) return;
+        const { route: resolvedRoute, params: resolvedParams } = resolved;
+
+        validateSerializable(
+          resolvedParams as Record<string, unknown>,
+          `navigateToScreen("${route}")`,
+        );
         const from = getCurrentRouteInfo(store.getState());
-        const toInfo: RouteInfo = { route, params };
+        const toInfo: RouteInfo = { route: resolvedRoute, params: resolvedParams };
         if (!guardRegistry.check(from, toInfo, 'push')) return;
         store.dispatch({
           type: 'NAVIGATE_TO_SCREEN',
-          route,
-          params,
+          route: resolvedRoute,
+          params: resolvedParams,
           id: createId(),
           timestamp: Date.now(),
         });
       },
-    }),
-    [store, guardRegistry, preloadCtx],
-  );
+    };
+  }, [store, guardRegistry, preloadCtx, routePatterns]);
 }
