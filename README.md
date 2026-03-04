@@ -44,6 +44,9 @@ Many React routers are optimized for "web-first" navigation (URL-driven, single 
 - **Screen Preloading**
   Pre-render screens before navigation with `preload()` for instant transitions.
 
+- **Resolved Path Navigation**
+  Navigate with resolved paths like `push('/home/detail/42')` instead of route patterns. Params are automatically extracted from the URL. The existing pattern + params API (`push('home/detail/:id', { id: '42' })`) remains fully supported.
+
 ---
 
 ## Installation
@@ -108,7 +111,7 @@ function HomeScreen() {
 
   return (
     <div>
-      <button onClick={() => push('post-detail/:postId', { postId: '1' })}>
+      <button onClick={() => push('/home/post-detail/1')}>
         View Post
       </button>
       <button onClick={() => overlay.open('new-post')}>
