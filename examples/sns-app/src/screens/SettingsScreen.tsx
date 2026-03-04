@@ -7,7 +7,7 @@ export function SettingsScreen() {
 
   const handleLogout = () => {
     logout();
-    navigation.navigateToScreen('login');
+    navigation.navigateToScreen('/login');
   };
 
   return (

@@ -60,7 +60,7 @@ export function LoginScreen() {
             borderRadius: 4,
             cursor: 'pointer',
           }}
-          onClick={() => navigation.push('login/signup')}
+          onClick={() => navigation.push('/login/signup')}
         >
           Sign Up
         </button>

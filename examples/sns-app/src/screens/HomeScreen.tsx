@@ -26,11 +26,8 @@ export function HomeScreen() {
             {/* Link — declarative, type-safe navigation */}
             {/* preload — pre-render the detail screen on touch start for instant navigation */}
             <Link
-              to="home/post-detail/:postId"
-              params={{ postId: post.id }}
-              onTouchStart={() =>
-                navigation.preload('home/post-detail/:postId', { postId: post.id })
-              }
+              to={`/home/post-detail/${post.id}`}
+              onTouchStart={() => navigation.preload(`/home/post-detail/${post.id}`)}
             >
               <strong>@{post.author}</strong>
               <p>{post.content}</p>

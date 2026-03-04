@@ -42,13 +42,27 @@ function testCreateId(): string {
   return `test-id-${++idCounter}`;
 }
 
+const defaultRoutePatterns = parseRoutePatterns([
+  'home',
+  'home/detail',
+  'home/detail/:id',
+  'home/a',
+  'home/b',
+  'home/c',
+  'home/replaced',
+  'search',
+  'search/results/:query',
+  'profile',
+  'profile/settings',
+]);
+
 function createWrapper(
   store: NavigationStoreForHooks,
   guardRegistry?: NavigationGuardRegistry,
   routePatterns?: Map<string, RoutePattern> | null,
 ) {
   const registry = guardRegistry ?? createNavigationGuardRegistry();
-  const patterns = routePatterns ?? null;
+  const patterns = routePatterns === undefined ? defaultRoutePatterns : routePatterns;
   return function Wrapper({ children }: { children: React.ReactNode }) {
     return (
       <NavigationStoreContext.Provider value={store}>
@@ -73,16 +87,16 @@ describe('useNavigation', () => {
     const { result } = renderHook(() => useNavigation(), { wrapper });
 
     act(() => {
-      result.current.push('home/detail', { id: '42' });
+      result.current.push('/home/detail/42');
     });
 
     const newState = store.getState();
     expect(newState.tabs.home.stack).toHaveLength(2);
-    expect(newState.tabs.home.stack[1].route).toBe('home/detail');
+    expect(newState.tabs.home.stack[1].route).toBe('home/detail/:id');
     expect(newState.tabs.home.stack[1].params).toEqual({ id: '42' });
   });
 
-  it('push with no params defaults to empty object', () => {
+  it('push with no params route works', () => {
     const state = createInitialState(
       { tabs: ['home', 'search'], initialTab: 'home' },
       testCreateId,
@@ -94,10 +108,11 @@ describe('useNavigation', () => {
     const { result } = renderHook(() => useNavigation(), { wrapper });
 
     act(() => {
-      result.current.push('home/detail');
+      result.current.push('/home/detail');
     });
 
     const newState = store.getState();
+    expect(newState.tabs.home.stack[1].route).toBe('home/detail');
     expect(newState.tabs.home.stack[1].params).toEqual({});
   });
 
@@ -113,7 +128,7 @@ describe('useNavigation', () => {
     const { result } = renderHook(() => useNavigation(), { wrapper });
 
     act(() => {
-      result.current.push('home/detail');
+      result.current.push('/home/detail');
     });
     expect(store.getState().tabs.home.stack).toHaveLength(2);
 
@@ -135,9 +150,9 @@ describe('useNavigation', () => {
     const { result } = renderHook(() => useNavigation(), { wrapper });
 
     act(() => {
-      result.current.push('home/a');
-      result.current.push('home/b');
-      result.current.push('home/c');
+      result.current.push('/home/a');
+      result.current.push('/home/b');
+      result.current.push('/home/c');
     });
     expect(store.getState().tabs.home.stack).toHaveLength(4);
 
@@ -160,13 +175,13 @@ describe('useNavigation', () => {
     const { result } = renderHook(() => useNavigation(), { wrapper });
 
     act(() => {
-      result.current.replace('home/replaced', { key: 'val' });
+      result.current.replace('/home/replaced');
     });
 
     const newState = store.getState();
     expect(newState.tabs.home.stack).toHaveLength(1);
     expect(newState.tabs.home.stack[0].route).toBe('home/replaced');
-    expect(newState.tabs.home.stack[0].params).toEqual({ key: 'val' });
+    expect(newState.tabs.home.stack[0].params).toEqual({});
   });
 
   it('goBack dispatches GO_BACK action', () => {
@@ -181,7 +196,7 @@ describe('useNavigation', () => {
     const { result } = renderHook(() => useNavigation(), { wrapper });
 
     act(() => {
-      result.current.push('home/detail');
+      result.current.push('/home/detail');
     });
     expect(store.getState().tabs.home.stack).toHaveLength(2);
 
@@ -217,7 +232,7 @@ describe('useNavigation', () => {
     const { result } = renderHook(() => useNavigation(), { wrapper });
 
     act(() => {
-      result.current.push('home/detail');
+      result.current.push('/home/detail');
     });
 
     expect(result.current.canGoBack()).toBe(true);
@@ -254,6 +269,17 @@ describe('useNavigation', () => {
   });
 
   describe('screen layer navigation', () => {
+    const screenPatterns = parseRoutePatterns([
+      'home',
+      'home/detail',
+      'home/detail/:id',
+      'search',
+      'login',
+      'login/signup',
+      'login/verify',
+      'login/verify/:code',
+    ]);
+
     it('navigateToTabs switches from screens to tabs', () => {
       const state = createInitialState(
         {
@@ -266,7 +292,7 @@ describe('useNavigation', () => {
         () => 1000,
       );
       const store = createTestStore(state);
-      const wrapper = createWrapper(store);
+      const wrapper = createWrapper(store, undefined, screenPatterns);
 
       const { result } = renderHook(() => useNavigation(), { wrapper });
 
@@ -292,7 +318,7 @@ describe('useNavigation', () => {
         () => 1000,
       );
       const store = createTestStore(state);
-      const wrapper = createWrapper(store);
+      const wrapper = createWrapper(store, undefined, screenPatterns);
 
       const { result } = renderHook(() => useNavigation(), { wrapper });
 
@@ -310,14 +336,14 @@ describe('useNavigation', () => {
         () => 1000,
       );
       const store = createTestStore(state);
-      const wrapper = createWrapper(store);
+      const wrapper = createWrapper(store, undefined, screenPatterns);
 
       const { result } = renderHook(() => useNavigation(), { wrapper });
 
       expect(store.getState().activeLayer).toBe('tabs');
 
       act(() => {
-        result.current.navigateToScreen('login');
+        result.current.navigateToScreen('/login');
       });
 
       expect(store.getState().activeLayer).toBe('screens');
@@ -337,12 +363,12 @@ describe('useNavigation', () => {
         () => 1000,
       );
       const store = createTestStore(state);
-      const wrapper = createWrapper(store);
+      const wrapper = createWrapper(store, undefined, screenPatterns);
 
       const { result } = renderHook(() => useNavigation(), { wrapper });
 
       act(() => {
-        result.current.push('login/signup');
+        result.current.push('/login/signup');
       });
 
       expect(store.getState().screens).toHaveLength(2);
@@ -361,12 +387,12 @@ describe('useNavigation', () => {
         () => 1000,
       );
       const store = createTestStore(state);
-      const wrapper = createWrapper(store);
+      const wrapper = createWrapper(store, undefined, screenPatterns);
 
       const { result } = renderHook(() => useNavigation(), { wrapper });
 
       act(() => {
-        result.current.push('login/signup');
+        result.current.push('/login/signup');
       });
       expect(store.getState().screens).toHaveLength(2);
 
@@ -388,22 +414,22 @@ describe('useNavigation', () => {
         () => 1000,
       );
       const store = createTestStore(state);
-      const wrapper = createWrapper(store);
+      const wrapper = createWrapper(store, undefined, screenPatterns);
 
       const { result } = renderHook(() => useNavigation(), { wrapper });
 
       act(() => {
-        result.current.push('login/signup');
+        result.current.push('/login/signup');
       });
       expect(store.getState().screens).toHaveLength(2);
 
       act(() => {
-        result.current.replace('login/verify', { code: '1234' });
+        result.current.replace('/login/verify/1234');
       });
 
       const newState = store.getState();
       expect(newState.screens).toHaveLength(2);
-      expect(newState.screens[1].route).toBe('login/verify');
+      expect(newState.screens[1].route).toBe('login/verify/:code');
       expect(newState.screens[1].params).toEqual({ code: '1234' });
     });
 
@@ -419,13 +445,13 @@ describe('useNavigation', () => {
         () => 1000,
       );
       const store = createTestStore(state);
-      const wrapper = createWrapper(store);
+      const wrapper = createWrapper(store, undefined, screenPatterns);
 
       const { result } = renderHook(() => useNavigation(), { wrapper });
 
       act(() => {
-        result.current.push('login/signup');
-        result.current.push('login/verify');
+        result.current.push('/login/signup');
+        result.current.push('/login/verify');
       });
       expect(store.getState().screens).toHaveLength(3);
 
@@ -450,7 +476,7 @@ describe('useNavigation', () => {
         () => 1000,
       );
       const store = createTestStore(state);
-      const wrapper = createWrapper(store);
+      const wrapper = createWrapper(store, undefined, screenPatterns);
 
       const { result } = renderHook(() => useNavigation(), { wrapper });
 
@@ -475,12 +501,12 @@ describe('useNavigation', () => {
       const store = createTestStore(state);
       const guardRegistry = createNavigationGuardRegistry();
       guardRegistry.register('block-replace', () => false);
-      const wrapper = createWrapper(store, guardRegistry);
+      const wrapper = createWrapper(store, guardRegistry, screenPatterns);
 
       const { result } = renderHook(() => useNavigation(), { wrapper });
 
       act(() => {
-        result.current.replace('login/verify');
+        result.current.replace('/login/verify');
       });
 
       expect(store.getState().screens).toHaveLength(1);
@@ -501,13 +527,13 @@ describe('useNavigation', () => {
       const store = createTestStore(state);
       const guardRegistry = createNavigationGuardRegistry();
       guardRegistry.register('block-back', (_from, _to, direction) => direction !== 'back');
-      const wrapper = createWrapper(store, guardRegistry);
+      const wrapper = createWrapper(store, guardRegistry, screenPatterns);
 
       const { result } = renderHook(() => useNavigation(), { wrapper });
 
       act(() => {
-        result.current.push('login/signup');
-        result.current.push('login/verify');
+        result.current.push('/login/signup');
+        result.current.push('/login/verify');
       });
       expect(store.getState().screens).toHaveLength(3);
 
@@ -530,14 +556,14 @@ describe('useNavigation', () => {
         () => 1000,
       );
       const store = createTestStore(state);
-      const wrapper = createWrapper(store);
+      const wrapper = createWrapper(store, undefined, screenPatterns);
 
       const { result } = renderHook(() => useNavigation(), { wrapper });
 
       expect(result.current.canGoBack()).toBe(false);
 
       act(() => {
-        result.current.push('login/signup');
+        result.current.push('/login/signup');
       });
 
       expect(result.current.canGoBack()).toBe(true);
@@ -552,9 +578,9 @@ describe('useNavigation', () => {
       vi.restoreAllMocks();
     });
 
-    it('push logs error for non-serializable params in development', () => {
+    it('push warns for unmatched path in development', () => {
       process.env.NODE_ENV = 'development';
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
       const state = createInitialState(
         { tabs: ['home', 'search'], initialTab: 'home' },
         testCreateId,
@@ -566,15 +592,15 @@ describe('useNavigation', () => {
       const { result } = renderHook(() => useNavigation(), { wrapper });
 
       act(() => {
-        result.current.push('home/detail', { callback: () => {} } as any);
+        result.current.push('/unknown/route');
       });
 
-      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Non-serializable value'));
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('No route pattern matched'));
     });
 
-    it('replace logs error for non-serializable params in development', () => {
+    it('push does not warn for valid path', () => {
       process.env.NODE_ENV = 'development';
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
       const state = createInitialState(
         { tabs: ['home', 'search'], initialTab: 'home' },
         testCreateId,
@@ -586,15 +612,15 @@ describe('useNavigation', () => {
       const { result } = renderHook(() => useNavigation(), { wrapper });
 
       act(() => {
-        result.current.replace('home/replaced', { fn: () => {} } as any);
+        result.current.push('/home/detail/42');
       });
 
-      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Non-serializable value'));
+      expect(warnSpy).not.toHaveBeenCalled();
     });
 
-    it('navigateToScreen logs error for non-serializable params in development', () => {
+    it('preload warns for unmatched path in development', () => {
       process.env.NODE_ENV = 'development';
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
       const state = createInitialState(
         { tabs: ['home', 'search'], initialTab: 'home' },
         testCreateId,
@@ -606,70 +632,10 @@ describe('useNavigation', () => {
       const { result } = renderHook(() => useNavigation(), { wrapper });
 
       act(() => {
-        result.current.navigateToScreen('login', { handler: () => {} } as any);
+        result.current.preload('/unknown/route');
       });
 
-      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Non-serializable value'));
-    });
-
-    it('push does not log error for serializable params', () => {
-      process.env.NODE_ENV = 'development';
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-      const state = createInitialState(
-        { tabs: ['home', 'search'], initialTab: 'home' },
-        testCreateId,
-        () => 1000,
-      );
-      const store = createTestStore(state);
-      const wrapper = createWrapper(store);
-
-      const { result } = renderHook(() => useNavigation(), { wrapper });
-
-      act(() => {
-        result.current.push('home/detail', { id: '42', count: 3 });
-      });
-
-      expect(errorSpy).not.toHaveBeenCalled();
-    });
-
-    it('push does not log error in production', () => {
-      process.env.NODE_ENV = 'production';
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-      const state = createInitialState(
-        { tabs: ['home', 'search'], initialTab: 'home' },
-        testCreateId,
-        () => 1000,
-      );
-      const store = createTestStore(state);
-      const wrapper = createWrapper(store);
-
-      const { result } = renderHook(() => useNavigation(), { wrapper });
-
-      act(() => {
-        result.current.push('home/detail', { callback: () => {} } as any);
-      });
-
-      expect(errorSpy).not.toHaveBeenCalled();
-    });
-
-    it('preload logs error for non-serializable params in development', () => {
-      process.env.NODE_ENV = 'development';
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-      const state = createInitialState(
-        { tabs: ['home', 'search'], initialTab: 'home' },
-        testCreateId,
-        () => 1000,
-      );
-      const store = createTestStore(state);
-      const wrapper = createWrapper(store);
-
-      const { result } = renderHook(() => useNavigation(), { wrapper });
-
-      act(() => {
-        result.current.preload('home/detail', { callback: () => {} } as any);
-      });
-
-      expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Non-serializable value'));
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('No route pattern matched'));
     });
   });
 
@@ -767,7 +733,7 @@ describe('useNavigation', () => {
       warnSpy.mockRestore();
     });
 
-    it('push with resolved path without routePatterns context warns', () => {
+    it('push without routePatterns context warns', () => {
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
       const state = createInitialState(
         { tabs: ['home', 'search', 'profile'], initialTab: 'home' },
@@ -811,27 +777,6 @@ describe('useNavigation', () => {
       expect(newState.screens).toHaveLength(1);
       expect(newState.screens[0].route).toBe('login/verify/:code');
       expect(newState.screens[0].params).toEqual({ code: 'abc123' });
-    });
-
-    it('push with route pattern name still works when routePatterns provided', () => {
-      const state = createInitialState(
-        { tabs: ['home', 'search', 'profile'], initialTab: 'home' },
-        testCreateId,
-        () => 1000,
-      );
-      const store = createTestStore(state);
-      const wrapper = createWrapper(store, undefined, routePatterns);
-
-      const { result } = renderHook(() => useNavigation(), { wrapper });
-
-      act(() => {
-        result.current.push('home/detail/:id', { id: '42' });
-      });
-
-      const newState = store.getState();
-      expect(newState.tabs.home.stack).toHaveLength(2);
-      expect(newState.tabs.home.stack[1].route).toBe('home/detail/:id');
-      expect(newState.tabs.home.stack[1].params).toEqual({ id: '42' });
     });
   });
 });

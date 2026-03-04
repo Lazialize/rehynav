@@ -41,14 +41,14 @@ export function DetailScreen({ params }: ScreenComponentProps<{ id: string }>) {
           <button
             type="button"
             className="btn"
-            onClick={() => navigation.push('home/detail/:id', { id: `${params.id}-child` })}
+            onClick={() => navigation.push(`/home/detail/${params.id}-child`)}
           >
             push deeper detail
           </button>
           <button
             type="button"
             className="btn"
-            onClick={() => navigation.replace('home/detail/:id', { id: 'replaced' })}
+            onClick={() => navigation.replace('/home/detail/replaced')}
           >
             replace with detail/replaced
           </button>

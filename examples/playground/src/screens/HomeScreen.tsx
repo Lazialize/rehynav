@@ -31,24 +31,16 @@ export function HomeScreen() {
       <div className="section">
         <div className="section-title">Stack Navigation</div>
         <div className="action-list">
-          <button
-            type="button"
-            className="btn"
-            onClick={() => navigation.push('home/detail/:id', { id: '1' })}
-          >
+          <button type="button" className="btn" onClick={() => navigation.push('/home/detail/1')}>
             push detail/1
           </button>
-          <button
-            type="button"
-            className="btn"
-            onClick={() => navigation.push('home/detail/:id', { id: '2' })}
-          >
+          <button type="button" className="btn" onClick={() => navigation.push('/home/detail/2')}>
             push detail/2
           </button>
           <button
             type="button"
             className="btn"
-            onClick={() => navigation.push('home/detail/:id', { id: 'nested' })}
+            onClick={() => navigation.push('/home/detail/nested')}
           >
             push detail/nested (deep stack test)
           </button>
@@ -88,7 +80,11 @@ export function HomeScreen() {
       <div className="section">
         <div className="section-title">Screen Layer</div>
         <div className="action-list">
-          <button type="button" className="btn" onClick={() => navigation.navigateToScreen('auth')}>
+          <button
+            type="button"
+            className="btn"
+            onClick={() => navigation.navigateToScreen('/auth')}
+          >
             navigateToScreen(auth)
           </button>
         </div>

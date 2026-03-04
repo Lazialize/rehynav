@@ -8,15 +8,15 @@ import { validateSerializable } from '../core/validation.js';
 import { RoutePatternsContext, useGuardRegistry, useNavigationStore } from './context.js';
 
 export interface NavigationActions {
-  push(to: string, params?: Record<string, Serializable>): void;
+  push(to: string): void;
   pop(): void;
   popToRoot(): void;
-  replace(to: string, params?: Record<string, Serializable>): void;
+  replace(to: string): void;
   goBack(): void;
   canGoBack(): boolean;
-  preload(to: string, params?: Record<string, Serializable>): void;
+  preload(to: string): void;
   navigateToTabs(tab?: string): void;
-  navigateToScreen(route: string, params?: Record<string, Serializable>): void;
+  navigateToScreen(path: string): void;
 }
 
 export function useNavigation(): NavigationActions {
@@ -28,12 +28,7 @@ export function useNavigation(): NavigationActions {
   return useMemo(() => {
     function resolvePath(
       to: string,
-      params: Record<string, Serializable>,
     ): { route: string; params: Record<string, Serializable> } | null {
-      if (!to.startsWith('/')) {
-        return { route: to, params };
-      }
-
       if (!routePatterns) {
         if (process.env.NODE_ENV !== 'production') {
           console.warn(
@@ -44,7 +39,7 @@ export function useNavigation(): NavigationActions {
         return null;
       }
 
-      const pathname = to.slice(1); // strip leading '/'
+      const pathname = to.startsWith('/') ? to.slice(1) : to;
       const matched = matchUrl(pathname, routePatterns);
       if (!matched) {
         if (process.env.NODE_ENV !== 'production') {
@@ -60,8 +55,8 @@ export function useNavigation(): NavigationActions {
     }
 
     return {
-      push(to: string, params: Record<string, Serializable> = {}) {
-        const resolved = resolvePath(to, params);
+      push(to: string) {
+        const resolved = resolvePath(to);
         if (!resolved) return;
         const { route, params: resolvedParams } = resolved;
 
@@ -128,8 +123,8 @@ export function useNavigation(): NavigationActions {
           store.dispatch({ type: 'POP_TO_ROOT' });
         }
       },
-      replace(to: string, params: Record<string, Serializable> = {}) {
-        const resolved = resolvePath(to, params);
+      replace(to: string) {
+        const resolved = resolvePath(to);
         if (!resolved) return;
         const { route, params: resolvedParams } = resolved;
 
@@ -194,8 +189,8 @@ export function useNavigation(): NavigationActions {
         if (state.activeLayer === 'screens') return state.screens.length > 1;
         return state.tabs[state.activeTab].stack.length > 1;
       },
-      preload(to: string, params: Record<string, Serializable> = {}) {
-        const resolved = resolvePath(to, params);
+      preload(to: string) {
+        const resolved = resolvePath(to);
         if (!resolved) return;
         const { route, params: resolvedParams } = resolved;
 
@@ -209,14 +204,14 @@ export function useNavigation(): NavigationActions {
         if (!guardRegistry.check(from, toInfo, 'push')) return;
         store.dispatch({ type: 'NAVIGATE_TO_TABS', tab });
       },
-      navigateToScreen(route: string, params: Record<string, Serializable> = {}) {
-        const resolved = resolvePath(route, params);
+      navigateToScreen(path: string) {
+        const resolved = resolvePath(path);
         if (!resolved) return;
         const { route: resolvedRoute, params: resolvedParams } = resolved;
 
         validateSerializable(
           resolvedParams as Record<string, unknown>,
-          `navigateToScreen("${route}")`,
+          `navigateToScreen("${path}")`,
         );
         const from = getCurrentRouteInfo(store.getState());
         const toInfo: RouteInfo = { route: resolvedRoute, params: resolvedParams };
