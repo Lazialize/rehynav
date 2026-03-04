@@ -1,5 +1,23 @@
 # rehynav
 
+## 0.3.0
+
+### Minor Changes
+
+- [#32](https://github.com/Lazialize/rehynav/pull/32) [`b1d94cc`](https://github.com/Lazialize/rehynav/commit/b1d94cc6c6c65189bd2ebf2ae1c9dc5b6c1e74fa) Thanks [@Lazialize](https://github.com/Lazialize)! - Integrate previously unused runtime validation into the actual code flow (dev-only, no-op in production): `validateStackRoutes` is now called in `createRouter` to verify stack route prefixes match registered tabs, and `validateSerializable` is now called in `useNavigation` (`push`, `replace`, `navigateToScreen`) and `useOverlay` (`open`) before dispatch to warn about non-serializable route params
+
+- [#31](https://github.com/Lazialize/rehynav/pull/31) [`447777d`](https://github.com/Lazialize/rehynav/commit/447777d1b9a795aeea533eeed307124d56d1bd80) Thanks [@Lazialize](https://github.com/Lazialize)! - `createRouter()` now rejects duplicate route names across tabs, screens, stacks, and overlays, throwing a clear error with the conflicting route name and categories instead of silently overwriting in the screen registry
+
+- [#35](https://github.com/Lazialize/rehynav/pull/35) [`9f01ce9`](https://github.com/Lazialize/rehynav/commit/9f01ce9848efc0720c6179126293763856313b84) Thanks [@Lazialize](https://github.com/Lazialize)! - Support resolved path navigation: `push('/home/detail/42')` instead of `push('home/detail/:id', { id: '42' })`. The existing route pattern + params API remains fully supported.
+
+### Patch Changes
+
+- [#30](https://github.com/Lazialize/rehynav/pull/30) [`51d3d8e`](https://github.com/Lazialize/rehynav/commit/51d3d8e5d84e22afdbe0260a1cfe4acd7b530ea3) Thanks [@Lazialize](https://github.com/Lazialize)! - Fix: `Link` now forwards all native anchor props (`onTouchStart`, `aria-*`, `target`, `rel`, etc.) and only intercepts plain left-clicks, preserving browser defaults for modifier-key clicks, middle-clicks, and `target="_blank"` links.
+
+- [#29](https://github.com/Lazialize/rehynav/pull/29) [`b9b160f`](https://github.com/Lazialize/rehynav/commit/b9b160fb45c83f40a7118215e488c12909956510) Thanks [@Lazialize](https://github.com/Lazialize)! - Fix: normalize `basePath` in `stateToUrl`/`urlToState` to prevent wrong URL generation (e.g. `/apphome` instead of `/app/home`) and incorrect partial-match stripping (e.g. `/app` removed from `/application/home`)
+
+- [#27](https://github.com/Lazialize/rehynav/pull/27) [`1d55375`](https://github.com/Lazialize/rehynav/commit/1d55375c3662d1298931de1fe824db17ce155930) Thanks [@Lazialize](https://github.com/Lazialize)! - Fix: `createRouter()` now validates `initialTab` and `initialScreen` against defined tab/screen names, throwing a clear error with "Did you mean?" suggestions instead of silently creating invalid navigation state
+
 ## 0.2.0
 
 ### Minor Changes
