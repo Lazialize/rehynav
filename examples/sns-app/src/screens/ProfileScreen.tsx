@@ -18,7 +18,7 @@ export function ProfileScreen() {
 
       <div className="action-list">
         {/* push — imperative stack navigation */}
-        <button type="button" onClick={() => navigation.push('profile/settings')}>
+        <button type="button" onClick={() => navigation.push('/profile/settings')}>
           Settings →
         </button>
 

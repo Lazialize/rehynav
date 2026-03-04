@@ -30,8 +30,7 @@ export function NavigationProbesScreen() {
           <li>Verify className, data-testid, and aria-label are present on the anchor</li>
         </ol>
         <Link
-          to="home/detail/:id"
-          params={{ id: 'link-test' }}
+          to="/home/detail/link-test"
           className="btn btn-sm"
           data-testid="probe-link"
           aria-label="Navigate to link test detail"
@@ -60,7 +59,7 @@ export function NavigationProbesScreen() {
           <button
             type="button"
             className="btn btn-sm"
-            onClick={() => navigation.push('home/detail/:id', { id: 'back-test' })}
+            onClick={() => navigation.push('/home/detail/back-test')}
           >
             2. Push detail screen
           </button>
@@ -89,7 +88,7 @@ export function NavigationProbesScreen() {
           <button
             type="button"
             className="btn btn-sm"
-            onClick={() => navigation.navigateToScreen('auth')}
+            onClick={() => navigation.navigateToScreen('/auth')}
           >
             Switch to screens layer
           </button>

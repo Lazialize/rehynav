@@ -4,7 +4,6 @@ import userEvent from '@testing-library/user-event';
 import type React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { createNavigationGuardRegistry } from '../core/navigation-guard.js';
-import type { RoutePattern } from '../core/path-params.js';
 import { parseRoutePatterns } from '../core/path-params.js';
 import { createInitialState } from '../core/state.js';
 import type { ScreenRegistryForHooks } from '../hooks/context.js';
@@ -23,6 +22,15 @@ function testCreateId(): string {
   return `test-id-${++idCounter}`;
 }
 
+const defaultPatterns = parseRoutePatterns([
+  'home',
+  'home/detail',
+  'home/detail/:id',
+  'home/post-detail/:postId',
+  'home/replaced',
+  'search',
+]);
+
 function createTestWrapper() {
   const store = createNavigationStore(
     createInitialState({ tabs: ['home', 'search'], initialTab: 'home' }, testCreateId, () => 1000),
@@ -35,7 +43,9 @@ function createTestWrapper() {
       <NavigationStoreContext.Provider value={store}>
         <ScreenRegistryContext.Provider value={screenRegistry as unknown as ScreenRegistryForHooks}>
           <GuardRegistryContext.Provider value={guardRegistry}>
-            {children}
+            <RoutePatternsContext.Provider value={defaultPatterns}>
+              {children}
+            </RoutePatternsContext.Provider>
           </GuardRegistryContext.Provider>
         </ScreenRegistryContext.Provider>
       </NavigationStoreContext.Provider>
@@ -51,7 +61,7 @@ describe('Link', () => {
 
     render(
       <Wrapper>
-        <Link to="home/detail">Go to detail</Link>
+        <Link to="/home/detail">Go to detail</Link>
       </Wrapper>,
     );
 
@@ -60,12 +70,12 @@ describe('Link', () => {
     expect(link.tagName).toBe('A');
   });
 
-  it('sets href based on route', () => {
+  it('sets href based on resolved path', () => {
     const { Wrapper } = createTestWrapper();
 
     render(
       <Wrapper>
-        <Link to="home/detail">Detail</Link>
+        <Link to="/home/detail">Detail</Link>
       </Wrapper>,
     );
 
@@ -79,9 +89,7 @@ describe('Link', () => {
 
     render(
       <Wrapper>
-        <Link to="home/detail" params={{ id: '42' }}>
-          Detail
-        </Link>
+        <Link to="/home/detail/42">Detail</Link>
       </Wrapper>,
     );
 
@@ -89,7 +97,7 @@ describe('Link', () => {
 
     const state = store.getState();
     expect(state.tabs.home.stack).toHaveLength(2);
-    expect(state.tabs.home.stack[1].route).toBe('home/detail');
+    expect(state.tabs.home.stack[1].route).toBe('home/detail/:id');
     expect(state.tabs.home.stack[1].params).toEqual({ id: '42' });
   });
 
@@ -99,7 +107,7 @@ describe('Link', () => {
 
     render(
       <Wrapper>
-        <Link to="home/replaced" replace>
+        <Link to="/home/replaced" replace>
           Replace
         </Link>
       </Wrapper>,
@@ -117,7 +125,7 @@ describe('Link', () => {
 
     render(
       <Wrapper>
-        <Link to="home" className="nav-link" style={{ color: 'red' }}>
+        <Link to="/home" className="nav-link" style={{ color: 'red' }}>
           Home
         </Link>
       </Wrapper>,
@@ -134,58 +142,21 @@ describe('Link', () => {
 
     render(
       <Wrapper>
-        <Link to="home/detail">Detail</Link>
+        <Link to="/home/detail">Detail</Link>
       </Wrapper>,
     );
 
-    // Click should not cause page navigation (href change)
     await user.click(screen.getByRole('link', { name: 'Detail' }));
-    // If default wasn't prevented, we'd get an error in jsdom
-    // The test passing is sufficient
   });
 });
 
-describe('Link with routePatterns', () => {
-  const patterns = parseRoutePatterns(['home', 'home/post-detail/:postId', 'search']);
-
-  function createWrapperWithPatterns(routePatterns: Map<string, RoutePattern>) {
-    const store = createNavigationStore(
-      createInitialState(
-        { tabs: ['home', 'search'], initialTab: 'home' },
-        testCreateId,
-        () => 1000,
-      ),
-    );
-    const screenRegistry = createScreenRegistry();
-    const guardRegistry = createNavigationGuardRegistry();
-
-    function Wrapper({ children }: { children: React.ReactNode }) {
-      return (
-        <NavigationStoreContext.Provider value={store}>
-          <ScreenRegistryContext.Provider
-            value={screenRegistry as unknown as ScreenRegistryForHooks}
-          >
-            <GuardRegistryContext.Provider value={guardRegistry}>
-              <RoutePatternsContext.Provider value={routePatterns}>
-                {children}
-              </RoutePatternsContext.Provider>
-            </GuardRegistryContext.Provider>
-          </ScreenRegistryContext.Provider>
-        </NavigationStoreContext.Provider>
-      );
-    }
-
-    return { Wrapper, store };
-  }
-
-  it('generates href with path params embedded', () => {
-    const { Wrapper } = createWrapperWithPatterns(patterns);
+describe('Link with resolved paths', () => {
+  it('sets href directly from to prop', () => {
+    const { Wrapper } = createTestWrapper();
 
     render(
       <Wrapper>
-        <Link to="home/post-detail/:postId" params={{ postId: '42' }}>
-          Post
-        </Link>
+        <Link to="/home/post-detail/42">Post</Link>
       </Wrapper>,
     );
 
@@ -193,12 +164,12 @@ describe('Link with routePatterns', () => {
     expect(link).toHaveAttribute('href', '/home/post-detail/42');
   });
 
-  it('generates plain href for routes without path params', () => {
-    const { Wrapper } = createWrapperWithPatterns(patterns);
+  it('sets href for routes without path params', () => {
+    const { Wrapper } = createTestWrapper();
 
     render(
       <Wrapper>
-        <Link to="home">Home</Link>
+        <Link to="/home">Home</Link>
       </Wrapper>,
     );
 
@@ -206,15 +177,13 @@ describe('Link with routePatterns', () => {
     expect(link).toHaveAttribute('href', '/home');
   });
 
-  it('still navigates correctly with path params on click', async () => {
-    const { Wrapper, store } = createWrapperWithPatterns(patterns);
+  it('navigates correctly with resolved path on click', async () => {
+    const { Wrapper, store } = createTestWrapper();
     const user = userEvent.setup();
 
     render(
       <Wrapper>
-        <Link to="home/post-detail/:postId" params={{ postId: '42' }}>
-          Post
-        </Link>
+        <Link to="/home/post-detail/42">Post</Link>
       </Wrapper>,
     );
 
@@ -234,7 +203,7 @@ describe('Link forwards native anchor props', () => {
     render(
       <Wrapper>
         <Link
-          to="home/detail"
+          to="/home/detail"
           aria-label="Go to detail"
           target="_blank"
           rel="noopener"
@@ -257,7 +226,7 @@ describe('Link forwards native anchor props', () => {
 
     render(
       <Wrapper>
-        <Link to="home/detail" onTouchStart={handleTouchStart}>
+        <Link to="/home/detail" onTouchStart={handleTouchStart}>
           Detail
         </Link>
       </Wrapper>,
@@ -275,7 +244,7 @@ describe('Link forwards native anchor props', () => {
 
     render(
       <Wrapper>
-        <Link to="home/detail" onClick={handleClick}>
+        <Link to="/home/detail" onClick={handleClick}>
           Detail
         </Link>
       </Wrapper>,
@@ -294,7 +263,7 @@ describe('Link does not intercept modified clicks', () => {
 
     render(
       <Wrapper>
-        <Link to="home/detail">Detail</Link>
+        <Link to="/home/detail">Detail</Link>
       </Wrapper>,
     );
 
@@ -310,7 +279,7 @@ describe('Link does not intercept modified clicks', () => {
 
     render(
       <Wrapper>
-        <Link to="home/detail">Detail</Link>
+        <Link to="/home/detail">Detail</Link>
       </Wrapper>,
     );
 
@@ -326,7 +295,7 @@ describe('Link does not intercept modified clicks', () => {
 
     render(
       <Wrapper>
-        <Link to="home/detail">Detail</Link>
+        <Link to="/home/detail">Detail</Link>
       </Wrapper>,
     );
 
@@ -342,7 +311,7 @@ describe('Link does not intercept modified clicks', () => {
 
     render(
       <Wrapper>
-        <Link to="home/detail">Detail</Link>
+        <Link to="/home/detail">Detail</Link>
       </Wrapper>,
     );
 
@@ -358,7 +327,7 @@ describe('Link does not intercept modified clicks', () => {
 
     render(
       <Wrapper>
-        <Link to="home/detail">Detail</Link>
+        <Link to="/home/detail">Detail</Link>
       </Wrapper>,
     );
 
@@ -374,7 +343,7 @@ describe('Link does not intercept modified clicks', () => {
 
     render(
       <Wrapper>
-        <Link to="home/detail" onClick={(e) => e.preventDefault()}>
+        <Link to="/home/detail" onClick={(e) => e.preventDefault()}>
           Detail
         </Link>
       </Wrapper>,
@@ -391,7 +360,7 @@ describe('Link does not intercept modified clicks', () => {
 
     render(
       <Wrapper>
-        <Link to="home/detail" target="_blank">
+        <Link to="/home/detail" target="_blank">
           Detail
         </Link>
       </Wrapper>,
