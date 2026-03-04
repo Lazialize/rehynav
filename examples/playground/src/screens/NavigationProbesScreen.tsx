@@ -109,14 +109,14 @@ export function NavigationProbesScreen() {
         </ol>
         <div className="action-list">
           <button type="button" className="btn btn-sm" onClick={() => overlay.open('confirm')}>
-            Open first overlay
+            1. Open first overlay (then stack from inside)
           </button>
           <button
             type="button"
             className="btn btn-sm"
             onClick={() => overlay.open('detail-overlay', { title: 'Stacked' })}
           >
-            Open second overlay
+            (shortcut) Open second overlay directly
           </button>
         </div>
       </div>

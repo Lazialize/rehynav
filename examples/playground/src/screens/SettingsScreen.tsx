@@ -46,7 +46,7 @@ export function SettingsScreen() {
       </div>
 
       <div className="section">
-        <div className="section-title">URL Sync Info</div>
+        <div className="section-title">URL Sync Info (snapshot at render time)</div>
         <div className="log-area">
           {`location.pathname: ${window.location.pathname}\nlocation.search: ${window.location.search}\nlocation.hash: ${window.location.hash}`}
         </div>
