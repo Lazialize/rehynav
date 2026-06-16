@@ -22,16 +22,20 @@ const tree = buildRouteTree(
   ]),
 );
 
+function tabsNavKey(state: NavigatorState): string {
+  const key = state.routes[state.index].state?.key;
+  if (!key) throw new Error('expected a nested tabs navigator');
+  return key;
+}
+
 /** Builds initial state at `/` with the `(tabs)` navigator marked as a tab navigator. */
 function initialState(): NavigatorState {
-  let state = getStateFromPath('/', tree).state;
-  const tabsKey = state.routes[state.index].state?.key;
-  state = navigationReducer(state, {
+  const base = getStateFromPath('/', tree).state;
+  return navigationReducer(base, {
     type: 'SET_NAVIGATOR_TYPE',
-    key: tabsKey!,
+    key: tabsNavKey(base),
     navigatorType: 'tab',
   });
-  return state;
 }
 
 function navigate(state: NavigatorState, href: string, mode: NavigateMode): NavigatorState {
@@ -110,10 +114,9 @@ describe('navigationReducer', () => {
 
   it('SET_NAVIGATOR_TYPE returns the same reference when unchanged', () => {
     const state = initialState();
-    const tabsKey = state.routes[state.index].state?.key;
     const same = navigationReducer(state, {
       type: 'SET_NAVIGATOR_TYPE',
-      key: tabsKey!,
+      key: tabsNavKey(state),
       navigatorType: 'tab',
     });
     expect(same).toBe(state);

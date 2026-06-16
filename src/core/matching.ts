@@ -214,6 +214,19 @@ export function collectActiveParams(state: NavigatorState): Params {
   return params;
 }
 
+/** Collects the route keys along the active chain (used to determine focus). */
+export function collectActiveKeys(state: NavigatorState): Set<string> {
+  const keys = new Set<string>();
+  let nav: NavigatorState | undefined = state;
+  while (nav) {
+    const route: NavigationRoute | undefined = nav.routes[nav.index];
+    if (!route) break;
+    keys.add(route.key);
+    nav = route.state;
+  }
+  return keys;
+}
+
 /** Returns the URL segments (route names) of the active chain, groups stripped. */
 export function collectActiveSegments(state: NavigatorState): string[] {
   const segments: string[] = [];
