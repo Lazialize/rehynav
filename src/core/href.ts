@@ -46,7 +46,9 @@ export function resolveHref(href: Href): string {
 export function withBasePath(href: string, basePath: string): string {
   if (!basePath) return href;
   const [path, query] = href.split('?');
-  const normalized = `${basePath.replace(/\/$/, '')}/${path.replace(/^\//, '')}`;
+  const base = basePath.replace(/\/$/, '');
+  const rest = path.replace(/^\//, '');
+  const normalized = rest ? `${base}/${rest}` : base;
   return query ? `${normalized}?${query}` : normalized;
 }
 

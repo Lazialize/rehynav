@@ -1,4 +1,4 @@
-import { type Href, resolveHref, withBasePath } from '../core/href.js';
+import { type Href, resolveHref } from '../core/href.js';
 import { getStateFromPath } from '../core/matching.js';
 import { canGoBack as canGoBackState } from '../core/reducer.js';
 import type { Params, RouteNode } from '../core/types.js';
@@ -37,9 +37,10 @@ export function createController(
   tree: RouteNode,
   config: ControllerConfig,
 ): NavigationController {
+  // Navigation state is always base-path-relative; the base path only affects the
+  // browser URL (history sync) and the rendered `Link` href.
   function build(href: Href, params?: Params) {
-    const url = withBasePath(resolveHref(combine(href, params)), config.basePath);
-    return getStateFromPath(url, tree).state;
+    return getStateFromPath(resolveHref(combine(href, params)), tree).state;
   }
 
   return {

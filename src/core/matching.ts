@@ -1,5 +1,4 @@
 import { createId } from './id.js';
-import { findChild } from './route-tree.js';
 import type { NavigationRoute, NavigatorState, Params, RouteNode } from './types.js';
 
 /** A parsed URL split into its pathname segments and search params. */
@@ -240,9 +239,4 @@ export function collectActiveSegments(state: NavigatorState): string[] {
     nav = route.state;
   }
   return segments;
-}
-
-/** Locates the layout node that owns a given navigator route name from the root. */
-export function resolveLayoutNode(root: RouteNode, name: string): RouteNode | undefined {
-  return findChild(root, name);
 }

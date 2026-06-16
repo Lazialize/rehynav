@@ -1,4 +1,10 @@
-import { buildRouteTree, findChild, parseDynamic, type RouteContextMap } from './route-tree.js';
+import {
+  buildRouteTree,
+  findChild,
+  flattenRouteTree,
+  parseDynamic,
+  type RouteContextMap,
+} from './route-tree.js';
 
 const C = (name: string) => {
   const fn = () => null;
@@ -105,5 +111,21 @@ describe('buildRouteTree', () => {
   it('ignores non-route files', () => {
     const tree = buildRouteTree(ctx({ './app/index.tsx': C('Home'), './app/styles.css': C('x') }));
     expect(tree.children.map((c) => c.name)).toEqual(['index']);
+  });
+});
+
+describe('flattenRouteTree', () => {
+  it('returns every node depth-first including nested layouts', () => {
+    const tree = buildRouteTree(
+      ctx({
+        './app/_layout.tsx': C('Root'),
+        './app/(tabs)/_layout.tsx': C('Tabs'),
+        './app/(tabs)/home.tsx': C('Home'),
+      }),
+    );
+    const names = flattenRouteTree(tree).map((n) => n.name);
+    expect(names).toContain('(tabs)');
+    expect(names).toContain('home');
+    expect(names[0]).toBe('');
   });
 });

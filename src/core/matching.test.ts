@@ -101,3 +101,25 @@ describe('collectActiveSegments', () => {
     expect(collectActiveSegments(state)).toEqual(['posts', '[id]']);
   });
 });
+
+describe('deep dynamic (catch-all) routes', () => {
+  const tree = buildRouteTree(
+    ctx(['./app/_layout.tsx', './app/index.tsx', './app/files/[...path].tsx']),
+  );
+
+  it('captures the remaining segments as an array', () => {
+    const { state } = getStateFromPath('/files/a/b/c', tree);
+    expect(collectActiveParams(state).path).toEqual(['a', 'b', 'c']);
+  });
+
+  it('round-trips the catch-all path', () => {
+    const { state } = getStateFromPath('/files/a/b', tree);
+    expect(getPathFromState(state)).toBe('/files/a/b');
+  });
+
+  it('serializes a scalar catch-all param', () => {
+    const { state } = getStateFromPath('/files/x', tree);
+    state.routes[state.index].params = { path: 'single' };
+    expect(getPathFromState(state)).toBe('/files/single');
+  });
+});

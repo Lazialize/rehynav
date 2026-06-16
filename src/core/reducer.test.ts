@@ -1,7 +1,13 @@
 import { getPathFromState, getStateFromPath } from './matching.js';
-import { canGoBack, type NavigateMode, navigationReducer } from './reducer.js';
+import {
+  canGoBack,
+  mergeNavigator,
+  type NavigateMode,
+  type NavigationAction,
+  navigationReducer,
+} from './reducer.js';
 import { buildRouteTree, type RouteContextMap } from './route-tree.js';
-import type { NavigatorState } from './types.js';
+import type { NavigationRoute, NavigatorState } from './types.js';
 
 const C = () => () => null;
 
@@ -120,5 +126,91 @@ describe('navigationReducer', () => {
       navigatorType: 'tab',
     });
     expect(same).toBe(state);
+  });
+
+  it('ignores unknown actions', () => {
+    const state = initialState();
+    expect(navigationReducer(state, { type: 'UNKNOWN' } as unknown as NavigationAction)).toBe(
+      state,
+    );
+  });
+});
+
+// Synthetic state builders for exercising mergeNavigator branches directly.
+function route(name: string, state?: NavigatorState): NavigationRoute {
+  return state ? { key: `${name}-k`, name, state } : { key: `${name}-k`, name };
+}
+function stackOf(routes: NavigationRoute[], index = routes.length - 1): NavigatorState {
+  return { type: 'stack', key: 's', index, routeNames: routes.map((r) => r.name), routes };
+}
+function tabOf(routes: NavigationRoute[], index = 0): NavigatorState {
+  return { type: 'tab', key: 't', index, routeNames: routes.map((r) => r.name), routes };
+}
+
+describe('mergeNavigator branches', () => {
+  it('pops to an existing intermediate branch that is not the top', () => {
+    const current = stackOf([route('a', stackOf([route('x')])), route('b', stackOf([route('y')]))]);
+    const target = stackOf([route('a', stackOf([route('x')]))]);
+    const next = mergeNavigator(current, target, 'navigate');
+    expect(next.index).toBe(0);
+    expect(next.routes).toHaveLength(1);
+  });
+
+  it('pushes a new intermediate branch when none matches', () => {
+    const current = stackOf([route('a', stackOf([route('x')]))]);
+    const target = stackOf([route('c', stackOf([route('z')]))]);
+    const next = mergeNavigator(current, target, 'navigate');
+    expect(next.routes.map((r) => r.name)).toEqual(['a', 'c']);
+    expect(next.index).toBe(1);
+  });
+
+  it('pops a leaf stack back to an existing entry of the same name', () => {
+    const current = stackOf([route('index'), route('detail')]);
+    const target = stackOf([route('index')]);
+    const next = mergeNavigator(current, target, 'navigate');
+    expect(next.routes.map((r) => r.name)).toEqual(['index']);
+  });
+
+  it('adds a new tab route when the target tab is not present', () => {
+    const current = tabOf([route('home')]);
+    const target = tabOf([route('profile')]);
+    const next = mergeNavigator(current, target, 'navigate');
+    expect(next.routes.map((r) => r.name)).toEqual(['home', 'profile']);
+    expect(next.index).toBe(1);
+  });
+
+  it('merges into an existing tab without switch mode', () => {
+    const current = tabOf(
+      [route('home', stackOf([route('index')])), route('feed', stackOf([route('index')]))],
+      0,
+    );
+    const target = tabOf([route('feed', stackOf([route('index'), route('[id]')]))]);
+    const next = mergeNavigator(current, target, 'navigate');
+    expect(next.index).toBe(1);
+    expect(next.routes[1].state?.routes).toHaveLength(2);
+  });
+
+  it('returns current when the target has no active route', () => {
+    const current = stackOf([route('a')]);
+    const empty: NavigatorState = {
+      type: 'stack',
+      key: 's',
+      index: -1,
+      routeNames: [],
+      routes: [],
+    };
+    expect(mergeNavigator(current, empty, 'push')).toBe(current);
+  });
+
+  it('replaces a stateless tab route with a nested target branch', () => {
+    const current = tabOf([route('feed')]);
+    const target = tabOf([route('feed', stackOf([route('index')]))]);
+    const next = mergeNavigator(current, target, 'navigate');
+    expect(next.routes[0].state?.routes).toHaveLength(1);
+  });
+
+  it('SET_PARAMS is a no-op when there is no active route', () => {
+    const empty = stackOf([]);
+    expect(navigationReducer(empty, { type: 'SET_PARAMS', params: { a: '1' } })).toBe(empty);
   });
 });
