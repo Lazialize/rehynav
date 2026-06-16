@@ -1,140 +1,82 @@
-// ---- Serializable Constraint ----
+import type { ComponentType } from 'react';
+import type { Serializable } from './serializable.js';
 
-export type Serializable =
-  | string
-  | number
-  | boolean
-  | null
-  | undefined
-  | Serializable[]
-  | { [key: string]: Serializable };
+/** Route params, as produced from the URL or passed to navigation methods. */
+export type Params = Record<string, Serializable>;
 
-// ---- Stack Entry ----
-
-export interface StackEntry {
-  /** Unique ID for this entry (for React keys and History API state) */
-  id: string;
-  /** Route name (e.g., "home/detail") */
-  route: string;
-  /** Route params (must be serializable) */
-  params: Record<string, Serializable>;
-  /** Timestamp when this entry was pushed (for ordering/debugging) */
-  timestamp: number;
-}
-
-// ---- Per-Tab State ----
-
-export interface TabState {
-  /** Tab root route name (e.g., "home") */
+/**
+ * A single dynamic segment convention parsed from a route name, e.g. `[id]`
+ * produces `{ name: 'id', deep: false }` and `[...rest]` produces
+ * `{ name: 'rest', deep: true }`.
+ */
+export interface DynamicConvention {
   name: string;
-  /** Stack of screens within this tab. Index 0 = root, last = top. */
-  stack: StackEntry[];
-  /** Whether this tab has been mounted at least once (for lazy loading) */
-  hasBeenActive: boolean;
+  deep: boolean;
 }
 
-// ---- Overlay Layer ----
-
-export interface OverlayEntry {
-  id: string;
-  route: string;
-  params: Record<string, Serializable>;
-  timestamp: number;
+/**
+ * A node in the static route tree built from the `app/` directory. There are
+ * two kinds:
+ * - `layout` nodes correspond to a `_layout` file and act as navigators; their
+ *   `children` are the screens registered in that navigator.
+ * - `screen` nodes are leaf routes rendered inside their parent navigator.
+ */
+export interface RouteNode {
+  type: 'layout' | 'screen';
+  /** Name relative to the parent navigator, e.g. `index`, `posts/[id]`, `(tabs)`. */
+  name: string;
+  /** Original source key (file path) or a synthetic key for generated nodes. */
+  contextKey: string;
+  /** Default-exported React component for this route (eager). */
+  component: ComponentType<unknown> | null;
+  /** Child screens, only meaningful for `layout` nodes. */
+  children: RouteNode[];
+  /** Parsed dynamic conventions for each path segment in `name`, or null. */
+  dynamic: DynamicConvention[] | null;
+  /** Optional `initialRouteName` declared by a layout's `unstable_settings` export. */
+  initialRouteName?: string;
 }
 
-// ---- Root Navigation State ----
+/** Kind of navigator a layout renders. */
+export type NavigatorType = 'stack' | 'tab';
 
-export interface NavigationState {
-  /** All tab states, keyed by tab name */
-  tabs: Record<string, TabState>;
-  /** Currently active tab name */
-  activeTab: string;
-  /** Ordered list of tabs (for tab bar rendering) */
-  tabOrder: string[];
-  /** Overlay stack (rendered above tabs) */
-  overlays: OverlayEntry[];
-  /** Tab badge values */
-  badges: Record<string, string | number | undefined>;
-  /** Screen stack (rendered instead of tabs when activeLayer is 'screens') */
-  screens: StackEntry[];
-  /** Which layer is currently active */
-  activeLayer: 'screens' | 'tabs';
+/**
+ * A single live route instance inside a navigator. Mirrors React Navigation's
+ * route shape so the whole state object stays serializable.
+ */
+export interface NavigationRoute {
+  /** Unique instance key (React key + History API addressing). */
+  key: string;
+  /** Screen name within the owning navigator (matches `RouteNode.name`). */
+  name: string;
+  params?: Params;
+  /** Nested navigator state when this route is itself a layout. */
+  state?: NavigatorState;
 }
 
-// ---- Navigation Actions ----
-
-export type NavigationAction =
-  | {
-      type: 'PUSH';
-      route: string;
-      params: Record<string, Serializable>;
-      id: string;
-      timestamp: number;
-    }
-  | { type: 'POP' }
-  | { type: 'POP_TO_ROOT' }
-  | {
-      type: 'REPLACE';
-      route: string;
-      params: Record<string, Serializable>;
-      id: string;
-      timestamp: number;
-    }
-  | { type: 'SWITCH_TAB'; tab: string }
-  | { type: 'SWITCH_TAB_AND_RESET'; tab: string }
-  | {
-      type: 'OPEN_OVERLAY';
-      route: string;
-      params: Record<string, Serializable>;
-      id: string;
-      timestamp: number;
-    }
-  | { type: 'CLOSE_OVERLAY'; route?: string }
-  | { type: 'GO_BACK' }
-  | { type: 'RESTORE_TO_ENTRY'; entryId: string }
-  | { type: 'RESET_STATE'; state: NavigationState }
-  | { type: 'SET_BADGE'; tab: string; badge: string | number | undefined }
-  | {
-      type: 'PUSH_SCREEN';
-      route: string;
-      params: Record<string, Serializable>;
-      id: string;
-      timestamp: number;
-    }
-  | { type: 'POP_SCREEN' }
-  | { type: 'POP_SCREEN_TO_ROOT' }
-  | {
-      type: 'REPLACE_SCREEN';
-      route: string;
-      params: Record<string, Serializable>;
-      id: string;
-      timestamp: number;
-    }
-  | { type: 'NAVIGATE_TO_TABS'; tab?: string }
-  | {
-      type: 'NAVIGATE_TO_SCREEN';
-      route: string;
-      params: Record<string, Serializable>;
-      id: string;
-      timestamp: number;
-    };
-
-// ---- Navigation Direction ----
-
-export type NavigationDirection = 'back' | 'forward' | 'push' | 'replace' | 'tab-switch';
-
-// ---- Back Result ----
-
-export interface BackResult {
-  /** Whether the back action was handled */
-  handled: boolean;
-  /** The new navigation state after the back action */
-  state: NavigationState;
+/**
+ * Live state of a single navigator. For `stack` navigators `routes` is the
+ * history (last entry is the top); for `tab` navigators `routes` holds one
+ * entry per tab and `index` selects the active tab.
+ */
+export interface NavigatorState {
+  type: NavigatorType;
+  key: string;
+  /** Active route index within `routes`. */
+  index: number;
+  /** All screen names this navigator can render. */
+  routeNames: string[];
+  routes: NavigationRoute[];
 }
 
-// ---- Route Info ----
-
+/** Information about the currently focused route. */
 export interface RouteInfo {
-  route: string;
-  params: Record<string, Serializable>;
+  /** Resolved URL pathname, e.g. `/posts/42`. */
+  pathname: string;
+  /** Path + search params merged together. */
+  params: Params;
+  /** URL segments of the active route, e.g. `['posts', '[id]']`. */
+  segments: string[];
 }
+
+export type { Serializable };

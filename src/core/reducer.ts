@@ -1,423 +1,192 @@
-import { resolveTabForRoute } from './route-utils.js';
-import type {
-  BackResult,
-  NavigationAction,
-  NavigationState,
-  OverlayEntry,
-  StackEntry,
-  TabState,
-} from './types.js';
+import type { NavigationRoute, NavigatorState, Params } from './types.js';
 
-export function handleBack(state: NavigationState): BackResult {
-  // Step 1: Close topmost overlay
-  if (state.overlays.length > 0) {
-    return {
-      handled: true,
-      state: {
-        ...state,
-        overlays: state.overlays.slice(0, -1),
-      },
-    };
-  }
+/** How a navigation target should be merged into the current state. */
+export type NavigateMode = 'navigate' | 'push' | 'replace' | 'switch';
 
-  // Step 2: If screen layer is active, pop screen stack
-  if (state.activeLayer === 'screens') {
-    if (state.screens.length > 1) {
-      return {
-        handled: true,
-        state: {
-          ...state,
-          screens: state.screens.slice(0, -1),
-        },
-      };
-    }
-    // At screen root
-    return { handled: false, state };
-  }
+export type NavigationAction =
+  | { type: 'NAVIGATE'; target: NavigatorState; mode: NavigateMode }
+  | { type: 'BACK' }
+  | { type: 'SET_PARAMS'; params: Params }
+  | { type: 'RESET'; state: NavigatorState }
+  | { type: 'SET_NAVIGATOR_TYPE'; key: string; navigatorType: NavigatorState['type'] };
 
-  // Step 3: Pop active tab's stack
-  const activeTabState = state.tabs[state.activeTab];
-  if (activeTabState.stack.length > 1) {
-    return {
-      handled: true,
-      state: {
-        ...state,
-        tabs: {
-          ...state.tabs,
-          [state.activeTab]: {
-            ...activeTabState,
-            stack: activeTabState.stack.slice(0, -1),
-          },
-        },
-      },
-    };
-  }
-
-  // Step 4: At root of tab, nothing to do
-  return { handled: false, state };
+function replaceAt<T>(arr: T[], index: number, value: T): T[] {
+  const next = arr.slice();
+  next[index] = value;
+  return next;
 }
 
-export function navigationReducer(
-  state: NavigationState,
-  action: NavigationAction,
-): NavigationState {
+/** Merges a freshly-built target route into an existing one, preserving its key. */
+function mergeRoute(
+  current: NavigationRoute,
+  target: NavigationRoute,
+  mode: NavigateMode,
+): NavigationRoute {
+  if (target.state) {
+    const state = current.state ? mergeNavigator(current.state, target.state, mode) : target.state;
+    return { ...current, params: target.params ?? current.params, state };
+  }
+  return { ...current, params: target.params };
+}
+
+/**
+ * Merges a target navigator state (typically produced by `getStateFromPath`)
+ * into the current navigator state according to the navigation mode.
+ */
+export function mergeNavigator(
+  current: NavigatorState,
+  target: NavigatorState,
+  mode: NavigateMode,
+): NavigatorState {
+  const targetRoute = target.routes[target.index];
+  if (!targetRoute) return current;
+
+  // A target route that continues into a nested navigator means this navigator
+  // is an intermediate level on the path: reuse the matching branch and recurse,
+  // letting the navigation `mode` apply only at the deepest (leaf) navigator.
+  const isIntermediate = targetRoute.state !== undefined;
+
+  if (current.type === 'tab') {
+    const existingIndex = current.routes.findIndex((r) => r.name === targetRoute.name);
+    if (existingIndex >= 0) {
+      // Switching tabs preserves each tab's independent nested stack.
+      if (mode === 'switch') {
+        return { ...current, index: existingIndex };
+      }
+      const merged = mergeRoute(current.routes[existingIndex], targetRoute, mode);
+      return {
+        ...current,
+        index: existingIndex,
+        routes: replaceAt(current.routes, existingIndex, merged),
+      };
+    }
+    const routes = [...current.routes, targetRoute];
+    return { ...current, routes, index: routes.length - 1 };
+  }
+
+  // Stack navigator on an intermediate level: reuse the branch by name, recurse.
+  if (isIntermediate) {
+    const top = current.routes[current.index];
+    if (top && top.name === targetRoute.name) {
+      const merged = mergeRoute(top, targetRoute, mode);
+      return { ...current, routes: replaceAt(current.routes, current.index, merged) };
+    }
+    const existingIndex = current.routes.findIndex((r) => r.name === targetRoute.name);
+    if (existingIndex >= 0) {
+      const merged = mergeRoute(current.routes[existingIndex], targetRoute, mode);
+      const routes = current.routes.slice(0, existingIndex + 1);
+      routes[existingIndex] = merged;
+      return { ...current, routes, index: routes.length - 1 };
+    }
+    const routes = [...current.routes, targetRoute];
+    return { ...current, routes, index: routes.length - 1 };
+  }
+
+  // Leaf target on a stack: the navigation mode decides how it lands.
+  if (mode === 'push') {
+    const routes = [...current.routes, targetRoute];
+    return { ...current, routes, index: routes.length - 1 };
+  }
+
+  if (mode === 'replace') {
+    const routes = replaceAt(current.routes, current.index, targetRoute);
+    return { ...current, routes, index: routes.length - 1 };
+  }
+
+  // navigate / switch on a stack: update in place if the top matches, otherwise
+  // pop back to an existing entry of the same name, otherwise push.
+  const top = current.routes[current.index];
+  if (top && top.name === targetRoute.name) {
+    const merged = mergeRoute(top, targetRoute, mode);
+    return { ...current, routes: replaceAt(current.routes, current.index, merged) };
+  }
+  const existingIndex = current.routes.findIndex((r) => r.name === targetRoute.name);
+  if (existingIndex >= 0) {
+    const merged = mergeRoute(current.routes[existingIndex], targetRoute, mode);
+    const routes = current.routes.slice(0, existingIndex + 1);
+    routes[existingIndex] = merged;
+    return { ...current, routes, index: routes.length - 1 };
+  }
+  const routes = [...current.routes, targetRoute];
+  return { ...current, routes, index: routes.length - 1 };
+}
+
+/** Pops the deepest active stack that has more than one entry. */
+function popActive(nav: NavigatorState): [NavigatorState, boolean] {
+  const route = nav.routes[nav.index];
+  if (route?.state) {
+    const [nested, didPop] = popActive(route.state);
+    if (didPop) {
+      const merged: NavigationRoute = { ...route, state: nested };
+      return [{ ...nav, routes: replaceAt(nav.routes, nav.index, merged) }, true];
+    }
+  }
+  if (nav.type === 'stack' && nav.routes.length > 1) {
+    const routes = nav.routes.slice(0, -1);
+    return [{ ...nav, routes, index: routes.length - 1 }, true];
+  }
+  return [nav, false];
+}
+
+/** Merges params into the deepest active route. */
+function setActiveParams(nav: NavigatorState, params: Params): NavigatorState {
+  const route = nav.routes[nav.index];
+  if (!route) return nav;
+  if (route.state) {
+    const nested = setActiveParams(route.state, params);
+    return { ...nav, routes: replaceAt(nav.routes, nav.index, { ...route, state: nested }) };
+  }
+  const merged: NavigationRoute = { ...route, params: { ...route.params, ...params } };
+  return { ...nav, routes: replaceAt(nav.routes, nav.index, merged) };
+}
+
+/** Sets the navigator `type` on the navigator with the matching key. */
+function setNavigatorType(
+  nav: NavigatorState,
+  key: string,
+  navigatorType: NavigatorState['type'],
+): NavigatorState {
+  let changed = false;
+  let next: NavigatorState = nav;
+  if (nav.key === key && nav.type !== navigatorType) {
+    next = { ...nav, type: navigatorType };
+    changed = true;
+  }
+  const routes = next.routes.map((route) => {
+    if (!route.state) return route;
+    const nested = setNavigatorType(route.state, key, navigatorType);
+    if (nested !== route.state) {
+      changed = true;
+      return { ...route, state: nested };
+    }
+    return route;
+  });
+  if (changed) return { ...next, routes };
+  return nav;
+}
+
+/** Pure reducer for the navigation state tree. */
+export function navigationReducer(state: NavigatorState, action: NavigationAction): NavigatorState {
   switch (action.type) {
-    case 'PUSH': {
-      const tab = resolveTabForRoute(action.route, state.tabOrder);
-      if (!tab) {
-        if (process.env.NODE_ENV !== 'production') {
-          console.warn(
-            `[rehynav] PUSH failed: route "${action.route}" does not match any registered tab. ` +
-              `Tab prefixes: ${state.tabOrder.join(', ')}. ` +
-              `Routes must start with a tab name (e.g., "${state.tabOrder[0]}/screen-name").`,
-          );
-        }
-        return state;
-      }
-
-      const newEntry: StackEntry = {
-        id: action.id,
-        route: action.route,
-        params: action.params,
-        timestamp: action.timestamp,
-      };
-
-      const targetTab = state.tabs[tab];
-      const newTabState: TabState = {
-        ...targetTab,
-        stack: [...targetTab.stack, newEntry],
-        hasBeenActive: true,
-      };
-
-      return {
-        ...state,
-        activeTab: tab,
-        tabs: {
-          ...state.tabs,
-          [tab]: newTabState,
-        },
-      };
+    case 'NAVIGATE':
+      return mergeNavigator(state, action.target, action.mode);
+    case 'BACK': {
+      const [next] = popActive(state);
+      return next;
     }
-
-    case 'POP': {
-      const activeTabState = state.tabs[state.activeTab];
-      if (activeTabState.stack.length <= 1) return state;
-
-      return {
-        ...state,
-        tabs: {
-          ...state.tabs,
-          [state.activeTab]: {
-            ...activeTabState,
-            stack: activeTabState.stack.slice(0, -1),
-          },
-        },
-      };
-    }
-
-    case 'POP_TO_ROOT': {
-      const activeTabState = state.tabs[state.activeTab];
-      if (activeTabState.stack.length <= 1) return state;
-
-      return {
-        ...state,
-        tabs: {
-          ...state.tabs,
-          [state.activeTab]: {
-            ...activeTabState,
-            stack: [activeTabState.stack[0]],
-          },
-        },
-      };
-    }
-
-    case 'REPLACE': {
-      const activeTabState = state.tabs[state.activeTab];
-      if (activeTabState.stack.length === 0) return state;
-
-      const routeTab = resolveTabForRoute(action.route, state.tabOrder);
-      if (routeTab && routeTab !== state.activeTab) {
-        if (process.env.NODE_ENV !== 'production') {
-          console.warn(
-            `[rehynav] REPLACE failed: route "${action.route}" belongs to tab "${routeTab}", ` +
-              `but the active tab is "${state.activeTab}". ` +
-              `Use PUSH to navigate to a different tab's route.`,
-          );
-        }
-        return state;
-      }
-
-      const newEntry: StackEntry = {
-        id: action.id,
-        route: action.route,
-        params: action.params,
-        timestamp: action.timestamp,
-      };
-
-      return {
-        ...state,
-        tabs: {
-          ...state.tabs,
-          [state.activeTab]: {
-            ...activeTabState,
-            stack: [...activeTabState.stack.slice(0, -1), newEntry],
-          },
-        },
-      };
-    }
-
-    case 'SWITCH_TAB': {
-      if (!state.tabs[action.tab]) return state;
-      if (state.activeTab === action.tab && state.overlays.length === 0) return state;
-
-      return {
-        ...state,
-        activeTab: action.tab,
-        overlays: [],
-        tabs: {
-          ...state.tabs,
-          [action.tab]: {
-            ...state.tabs[action.tab],
-            hasBeenActive: true,
-          },
-        },
-      };
-    }
-
-    case 'SWITCH_TAB_AND_RESET': {
-      if (!state.tabs[action.tab]) return state;
-
-      const targetTab = state.tabs[action.tab];
-      const isAlreadyActive = state.activeTab === action.tab;
-      const isAlreadyAtRoot = targetTab.stack.length === 1;
-
-      if (isAlreadyActive && isAlreadyAtRoot && state.overlays.length === 0) return state;
-
-      return {
-        ...state,
-        activeTab: action.tab,
-        overlays: [],
-        tabs: {
-          ...state.tabs,
-          [action.tab]: {
-            ...targetTab,
-            stack: [targetTab.stack[0]],
-            hasBeenActive: true,
-          },
-        },
-      };
-    }
-
-    case 'OPEN_OVERLAY': {
-      const newOverlay: OverlayEntry = {
-        id: action.id,
-        route: action.route,
-        params: action.params,
-        timestamp: action.timestamp,
-      };
-
-      return {
-        ...state,
-        overlays: [...state.overlays, newOverlay],
-      };
-    }
-
-    case 'CLOSE_OVERLAY': {
-      if (state.overlays.length === 0) return state;
-
-      if (action.route) {
-        let index = -1;
-        for (let i = state.overlays.length - 1; i >= 0; i--) {
-          if (state.overlays[i].route === action.route) {
-            index = i;
-            break;
-          }
-        }
-        if (index === -1) return state;
-
-        return {
-          ...state,
-          overlays: [...state.overlays.slice(0, index), ...state.overlays.slice(index + 1)],
-        };
-      }
-
-      return {
-        ...state,
-        overlays: state.overlays.slice(0, -1),
-      };
-    }
-
-    case 'GO_BACK': {
-      const result = handleBack(state);
-      return result.state;
-    }
-
-    case 'RESTORE_TO_ENTRY': {
-      // Search overlays first (reverse order, most recent first)
-      for (let i = state.overlays.length - 1; i >= 0; i--) {
-        if (state.overlays[i].id === action.entryId) {
-          // Restore to this overlay: keep overlays up to and including this one
-          return {
-            ...state,
-            overlays: state.overlays.slice(0, i + 1),
-          };
-        }
-      }
-
-      // Search screen stack
-      for (let i = state.screens.length - 1; i >= 0; i--) {
-        if (state.screens[i].id === action.entryId) {
-          return {
-            ...state,
-            activeLayer: 'screens',
-            screens: state.screens.slice(0, i + 1),
-            overlays: [],
-          };
-        }
-      }
-
-      // Search tab stacks
-      for (const tabName of state.tabOrder) {
-        const tabState = state.tabs[tabName];
-        for (let i = tabState.stack.length - 1; i >= 0; i--) {
-          if (tabState.stack[i].id === action.entryId) {
-            // Restore to this stack entry: trim stack, clear overlays, switch tab, activate tabs layer
-            return {
-              ...state,
-              activeTab: tabName,
-              activeLayer: 'tabs',
-              tabs: {
-                ...state.tabs,
-                [tabName]: {
-                  ...tabState,
-                  stack: tabState.stack.slice(0, i + 1),
-                  hasBeenActive: true,
-                },
-              },
-              screens: [],
-              overlays: [],
-            };
-          }
-        }
-      }
-
-      // Entry not found: fallback to initial tab root
-      const initialTab = state.tabOrder[0];
-      const initialTabState = state.tabs[initialTab];
-      return {
-        ...state,
-        activeTab: initialTab,
-        activeLayer: 'tabs',
-        tabs: {
-          ...state.tabs,
-          [initialTab]: {
-            ...initialTabState,
-            stack: [initialTabState.stack[0]],
-            hasBeenActive: true,
-          },
-        },
-        screens: [],
-        overlays: [],
-      };
-    }
-
-    case 'RESET_STATE': {
+    case 'SET_PARAMS':
+      return setActiveParams(state, action.params);
+    case 'RESET':
       return action.state;
-    }
-
-    case 'SET_BADGE': {
-      return {
-        ...state,
-        badges: {
-          ...state.badges,
-          [action.tab]: action.badge,
-        },
-      };
-    }
-
-    case 'PUSH_SCREEN': {
-      // NOTE: Unlike NAVIGATE_TO_SCREEN, this does not clear overlays.
-      // Currently useNavigation only dispatches PUSH_SCREEN when activeLayer
-      // is already 'screens', so stale overlays are not a concern. If a
-      // tabs→screens PUSH_SCREEN path is added in the future, consider
-      // clearing overlays here as well.
-      const newEntry: StackEntry = {
-        id: action.id,
-        route: action.route,
-        params: action.params,
-        timestamp: action.timestamp,
-      };
-      return {
-        ...state,
-        activeLayer: 'screens',
-        screens: [...state.screens, newEntry],
-      };
-    }
-
-    case 'POP_SCREEN': {
-      if (state.screens.length <= 1) return state;
-      return {
-        ...state,
-        screens: state.screens.slice(0, -1),
-      };
-    }
-
-    case 'POP_SCREEN_TO_ROOT': {
-      if (state.screens.length <= 1) return state;
-      return {
-        ...state,
-        screens: [state.screens[0]],
-      };
-    }
-
-    case 'REPLACE_SCREEN': {
-      if (state.screens.length === 0) return state;
-      const newEntry: StackEntry = {
-        id: action.id,
-        route: action.route,
-        params: action.params,
-        timestamp: action.timestamp,
-      };
-      return {
-        ...state,
-        screens: [...state.screens.slice(0, -1), newEntry],
-      };
-    }
-
-    case 'NAVIGATE_TO_TABS': {
-      const targetTab = action.tab && state.tabs[action.tab] ? action.tab : state.activeTab;
-      return {
-        ...state,
-        activeLayer: 'tabs',
-        screens: [],
-        activeTab: targetTab,
-        overlays: [],
-        tabs: {
-          ...state.tabs,
-          [targetTab]: {
-            ...state.tabs[targetTab],
-            hasBeenActive: true,
-          },
-        },
-      };
-    }
-
-    case 'NAVIGATE_TO_SCREEN': {
-      const newEntry: StackEntry = {
-        id: action.id,
-        route: action.route,
-        params: action.params,
-        timestamp: action.timestamp,
-      };
-      return {
-        ...state,
-        activeLayer: 'screens',
-        screens: [newEntry],
-        overlays: [],
-      };
-    }
-
+    case 'SET_NAVIGATOR_TYPE':
+      return setNavigatorType(state, action.key, action.navigatorType);
     default:
       return state;
   }
+}
+
+/** Returns true when `BACK` would change the state. */
+export function canGoBack(state: NavigatorState): boolean {
+  const [, didPop] = popActive(state);
+  return didPop;
 }

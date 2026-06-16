@@ -1,17 +1,19 @@
-import { navigationReducer } from '../core/reducer.js';
-import type { NavigationAction, NavigationState } from '../core/types.js';
+import { type NavigationAction, navigationReducer } from '../core/reducer.js';
+import type { NavigatorState } from '../core/types.js';
 
 type Listener = () => void;
 
+/** Minimal observer store compatible with `useSyncExternalStore`. */
 export interface NavigationStore {
-  getState(): NavigationState;
+  getState(): NavigatorState;
   dispatch(action: NavigationAction): void;
   subscribe(listener: Listener): () => void;
-  getServerSnapshot(): NavigationState;
+  getServerSnapshot(): NavigatorState;
 }
 
-export function createNavigationStore(initialState: NavigationState): NavigationStore {
+export function createNavigationStore(initialState: NavigatorState): NavigationStore {
   let state = initialState;
+  const initial = initialState;
   const listeners = new Set<Listener>();
 
   return {
@@ -20,12 +22,10 @@ export function createNavigationStore(initialState: NavigationState): Navigation
     },
 
     dispatch(action: NavigationAction) {
-      const nextState = navigationReducer(state, action);
-      if (nextState !== state) {
-        state = nextState;
-        for (const listener of listeners) {
-          listener();
-        }
+      const next = navigationReducer(state, action);
+      if (next !== state) {
+        state = next;
+        for (const listener of listeners) listener();
       }
     },
 
@@ -37,7 +37,7 @@ export function createNavigationStore(initialState: NavigationState): Navigation
     },
 
     getServerSnapshot() {
-      return state;
+      return initial;
     },
   };
 }
