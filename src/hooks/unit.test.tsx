@@ -4,7 +4,7 @@ import { getPathFromState, getStateFromPath } from '../core/matching.js';
 import { buildRouteTree, type RouteContextMap } from '../core/route-tree.js';
 import type { NavigationRoute, RouteNode } from '../core/types.js';
 import { createController } from '../store/controller.js';
-import { createNavigationStore, type NavigationStore } from '../store/navigation-store.js';
+import { createNavigationStore } from '../store/navigation-store.js';
 import {
   ControllerContext,
   NavigationStoreContext,

@@ -1,11 +1,9 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { ReactElement } from 'react';
 import type { RouteContextMap } from '../core/route-tree.js';
 import { useRouter } from '../hooks/useRouter.js';
 import { Redirect } from './Redirect.js';
 import { RouterProvider } from './RouterProvider.js';
-import { Slot } from './Slot.js';
 import { Stack } from './Stack.js';
 import { Tabs } from './Tabs.js';
 

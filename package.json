@@ -1,7 +1,7 @@
 {
   "name": "rehynav",
   "version": "0.2.0",
-  "description": "Mobile-first React navigation with tab-based independent stacks for web + hybrid apps (Capacitor/Tauri).",
+  "description": "File-based, Expo Router-style React navigation with independent per-tab stacks for web + hybrid apps (Capacitor/Tauri).",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -63,6 +63,10 @@
     "mobile",
     "web",
     "routing",
+    "file-based-routing",
+    "expo-router",
+    "capacitor",
+    "tauri",
     "hybrid app"
   ],
   "author": "Naoki Takahashi",
